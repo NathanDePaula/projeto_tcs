@@ -1,0 +1,126 @@
+### Variáveis globais
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### 1. Criar usuário com sucesso (dados válidos)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "joao_silva",
+  "email": "joao.silva@example.com",
+  "senha": "senha12345",
+  "nome": "João Silva",
+  "biografia": "Desenvolvedor Full Stack",
+  "fotoUrl": "https://example.com/foto.jpg"
+}
+
+### 2. Criar usuário sem foto e biografia (campos opcionais)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "maria_santos",
+  "email": "maria.santos@example.com",
+  "senha": "senha54321",
+  "nome": "Maria Santos"
+}
+
+### 3.1 Criar usuário sem nome (validação NULL)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "pedro_oliveira",
+  "email": "pedro@example.com",
+  "senha": "senha99999"
+}
+
+### 3.2 Criar usuário sem nome (validação NOT BLANK)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "nome": "",
+  "usuario": "pedro_oliveira",
+  "email": "pedro@example.com",
+  "senha": "senha99999"
+}
+
+### 4. Criar usuário com usuário muito curto (menor que 3 caracteres)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "ab",
+  "email": "test@example.com",
+  "senha": "senha12345",
+  "nome": "Test User"
+}
+
+### 5. Criar usuário com email inválido
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "teste_invalido",
+  "email": "email_invalido",
+  "senha": "senha12345",
+  "nome": "Teste Inválido"
+}
+
+### 6. Criar usuário com senha muito curta (menor que 8 caracteres)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "teste_senha",
+  "email": "teste@example.com",
+  "senha": "123",
+  "nome": "Teste Senha"
+}
+
+### 7. Criar usuário com usuário contendo caracteres inválidos (maiúsculas)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "Joao_Silva",
+  "email": "joao.silva2@example.com",
+  "senha": "senha12345",
+  "nome": "Joao Silva"
+}
+
+### 8. Criar usuário com nome contendo números (validação falha)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "teste_numeros",
+  "email": "teste.numeros@example.com",
+  "senha": "senha12345",
+  "nome": "Teste 123 Silva"
+}
+
+### 9. Criar usuário com email muito longo (maior que 35 caracteres)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "teste_email_longo",
+  "email": "teste.email.muito.longo.demais@example.com.br",
+  "senha": "senha12345",
+  "nome": "Teste Email Longo"
+}
+
+### 10. Criar usuário com biografia muito curta (menor que 5 caracteres)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "teste_bio",
+  "email": "teste.bio@example.com",
+  "senha": "senha12345",
+  "nome": "Teste Bio",
+  "biografia": "abc"
+}

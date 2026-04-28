@@ -1,0 +1,64 @@
+### Variáveis globais
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### 1. Login com sucesso (usuário existente)
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "usuario": "joao_silva",
+  "senha": "senha12345"
+}
+
+### 2. Login com credenciais inválidas (senha errada)
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "usuario": "joao_silva",
+  "senha": "senha_errada"
+}
+
+### 3. Login com usuário inexistente
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "usuario": "usuario_inexistente",
+  "senha": "senha12345"
+}
+
+### 4. Login sem usuário (validação)
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "senha": "senha12345"
+}
+
+### 5. Login sem senha (validação)
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "usuario": "joao_silva"
+}
+
+### 6. Login com usuário muito curto (validação)
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "usuario": "ab",
+  "senha": "senha12345"
+}
+
+### 7. Login com senha muito curta (validação)
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "usuario": "joao_silva",
+  "senha": "123"
+}
