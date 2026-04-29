@@ -3,6 +3,7 @@ package com.projetotcs.instagram.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -20,6 +21,7 @@ import com.projetotcs.instagram.service.UsuarioService;
 import jakarta.validation.Valid;
 
 @RestController
+@CrossOrigin("*")
 @RequestMapping("/usuarios")
 public class UsuarioController {
     @Autowired
@@ -40,6 +42,11 @@ public class UsuarioController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginDTO request) {
         return ResponseEntity.status(HttpStatus.OK).body(usuarioService.login(request));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout() {
+        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.logout());
     }
 
     @GetMapping("/{id}")

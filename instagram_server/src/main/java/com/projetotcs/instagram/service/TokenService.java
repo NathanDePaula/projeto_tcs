@@ -18,7 +18,7 @@ public class TokenService {
     @Value("${api.security.token.secret}")
     private String secret;
 
-    private Instant generateExpirationDate(){
+    public Instant generateExpirationDate(){
         // Define a expiração do token para 5 minutos a partir do momento atual
         return LocalDateTime.now().plusMinutes(5).toInstant(ZoneOffset.of("-03:00")); 
     }
@@ -34,6 +34,15 @@ public class TokenService {
                 .withExpiresAt(generateExpirationDate()) // Define a expiração do token (5 minutos)
                 .sign(algorithm); // Assina o token com o algoritmo definido
         return token;
+    }
+
+    public Instant getExpirationDate(String token) {
+        Algorithm algorithm = Algorithm.HMAC256(secret);
+        return JWT.require(algorithm)
+                .withIssuer("instagram-api")
+                .build()
+                .verify(token)
+                .getExpiresAtAsInstant();
     }
 
     public String validateToken(String token) throws JWTVerificationException{

@@ -1,0 +1,245 @@
+:root {
+    --insta-blue: #0095f6;
+    --insta-blue-hover: #1877f2;
+    --insta-gray: #8e8e8e;
+    --insta-light-gray: #dbdbdb;
+    --insta-bg: #fafafa;
+    --insta-white: #ffffff;
+    --insta-black: #262626;
+    --insta-red: #ed4956;
+    --insta-border: #dbdbdb;
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--insta-bg);
+    color: var(--insta-black);
+    font-family: var(--font-family);
+    line-height: 1.5;
+}
+
+#app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Loader */
+.loader-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--insta-light-gray);
+    border-top: 4px solid var(--insta-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Estilo dos Containers (Login/Cadastro/Perfil) */
+.main-container {
+    max-width: 350px;
+    margin: 50px auto;
+    padding: 40px;
+    background-color: var(--insta-white);
+    border: 1px solid var(--insta-border);
+    text-align: center;
+}
+
+.logo {
+    font-size: 2.5rem;
+    font-weight: bold;
+    font-style: italic;
+    margin-bottom: 30px;
+    color: var(--insta-black);
+}
+
+.form-group {
+    margin-bottom: 10px;
+    text-align: left;
+}
+
+.form-group label {
+    font-size: 0.8rem;
+    color: var(--insta-gray);
+    margin-bottom: 4px;
+    display: block;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 10px;
+    background: var(--insta-bg);
+    border: 1px solid var(--insta-border);
+    border-radius: 3px;
+    font-size: 0.85rem;
+}
+
+input:focus {
+    border-color: var(--insta-gray);
+    outline: none;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--insta-blue);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+button:hover {
+    background-color: var(--insta-blue-hover);
+}
+
+button.secondary {
+    background-color: transparent;
+    color: var(--insta-blue);
+    border: 1px solid var(--insta-blue);
+}
+
+button.danger {
+    background-color: var(--insta-red);
+}
+
+.switch-page {
+    margin-top: 20px;
+    font-size: 0.9rem;
+}
+
+.switch-page a {
+    color: var(--insta-blue);
+    text-decoration: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Perfil/Dashboard */
+.profile-pic {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 20px;
+    border: 1px solid var(--insta-border);
+}
+
+.profile-info {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.profile-username {
+    font-size: 1.8rem;
+    font-weight: 300;
+    margin-bottom: 10px;
+}
+
+.profile-bio {
+    font-weight: bold;
+    white-space: pre-wrap;
+    color: var(--insta-gray);
+}
+
+/* Toast System */
+#toast-container {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    z-index: 2000;
+}
+
+.toast {
+    background: #333;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 4px;
+    margin-top: 10px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast.error { background: var(--insta-red); }
+.toast.success { background: #4caf50; }
+
+/* Debug Console */
+.debug-console {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 300px;
+    background: #1e1e1e;
+    color: #00ff00;
+    font-family: monospace;
+    font-size: 0.75rem;
+    z-index: 3000;
+    transition: height 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.debug-console.collapsed {
+    height: 35px;
+}
+
+.debug-header {
+    background: #333;
+    padding: 8px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    color: #eee;
+}
+
+.debug-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.debug-entry {
+    margin-bottom: 8px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+.debug-entry.req { color: #00d2ff; }
+.debug-entry.res { color: #ccff00; }
+.debug-entry.err { color: #ff5555; }
+.debug-entry.info { color: #ffffff; }

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public record UsuarioSchema(
     String id,
     
-    @JsonProperty("nome_completo")
+    @JsonProperty("nome")
     String nomeCompleto,
     
     String usuario,
@@ -14,7 +14,7 @@ public record UsuarioSchema(
     
     String biografia,
     
-    @JsonProperty("foto_url")
+    @JsonProperty("foto")
     String fotoUrl
 ) {
 }

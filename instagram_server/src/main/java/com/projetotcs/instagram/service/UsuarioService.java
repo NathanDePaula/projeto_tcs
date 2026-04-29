@@ -108,18 +108,17 @@ public class UsuarioService {
         // Gera o token JWT
         var token = tokenService.generateToken(usuarioAutenticado);
         
-        // Monta os dados do usuário para a resposta
-        Map<String, Object> usuarioDados = new HashMap<>();
-        usuarioDados.put("id", usuarioAutenticado.getId());
-        usuarioDados.put("nome", usuarioAutenticado.getNomeCompleto());
-        usuarioDados.put("email", usuarioAutenticado.getEmail());
-        
-        // Monta o objeto de dados final (token + usuario)
+        // Monta o objeto de dados final contendo apenas o token
         Map<String, Object> dados = new HashMap<>();
         dados.put("token", token);
-        dados.put("usuario", usuarioDados);
 
         return new PadraoResposta("sucesso", "LOGIN_SUCESSO", "Login realizado com sucesso", dados);
+    }
+
+    public PadraoResposta logout() {
+        // O logout em sistemas stateless (JWT) é tratado principalmente no cliente
+        // No servidor, retornamos sucesso para indicar que o comando foi recebido
+        return new PadraoResposta("sucesso", "LOGOUT_SUCESSO", "Logout realizado com sucesso");
     }
 
     public PadraoResposta obterUsuarioPorId(String id) {
