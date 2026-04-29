@@ -108,9 +108,15 @@ public class UsuarioService {
         // Gera o token JWT
         var token = tokenService.generateToken(usuarioAutenticado);
         
-        // Monta o objeto de dados final contendo apenas o token
+        // Monta o objeto de dados final contendo o token e informações do usuário
         Map<String, Object> dados = new HashMap<>();
         dados.put("token", token);
+        
+        Map<String, Object> usuario = new HashMap<>();
+        usuario.put("id", usuarioAutenticado.getId());
+        usuario.put("nome", usuarioAutenticado.getNomeCompleto());
+        usuario.put("email", usuarioAutenticado.getEmail());
+        dados.put("usuario", usuario);
 
         return new PadraoResposta("sucesso", "LOGIN_SUCESSO", "Login realizado com sucesso", dados);
     }
@@ -134,25 +140,44 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException("Usuário não encontrado."));
 
-        // Verificar se o novo nome de usuário já está em uso por outro ID
-        if (!usuario.getUsuario().equals(request.usuario()) && usuarioRepository.existsByUsuario(request.usuario())) {
-            throw new UsuarioJaExisteException("Este nome de usuário já está em uso.");
+        boolean atualizou = false;
+
+        if (request.nome() != null) {
+            usuario.setNomeCompleto(request.nome());
+            atualizou = true;
         }
 
-        usuario.setNomeCompleto(request.nome());
-        usuario.setEmail(request.email());
-        usuario.setUsuario(request.usuario());
+        if (request.email() != null) {
+            usuario.setEmail(request.email());
+            atualizou = true;
+        }
+
+        if (request.usuario() != null) {
+            // Verificar se o novo nome de usuário já está em uso por outro ID
+            if (!usuario.getUsuario().equals(request.usuario()) && usuarioRepository.existsByUsuario(request.usuario())) {
+                throw new UsuarioJaExisteException("Este nome de usuário já está em uso.");
+            }
+            usuario.setUsuario(request.usuario());
+            atualizou = true;
+        }
         
         if (request.biografia() != null) {
             usuario.setBiografia(request.biografia());
+            atualizou = true;
         }
         
         if (request.foto() != null) {
             usuario.setFoto(request.foto());
+            atualizou = true;
         }
 
         if (request.senha() != null && !request.senha().isBlank()) {
             usuario.setSenha(passwordEncoder.encode(request.senha()));
+            atualizou = true;
+        }
+
+        if (!atualizou) {
+            throw new IllegalArgumentException("Ao menos um campo deve ser enviado para atualização.");
         }
 
         usuarioRepository.save(usuario);

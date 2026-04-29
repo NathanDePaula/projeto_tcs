@@ -118,7 +118,11 @@ async function login(usuario, senha, isAutoRefresh = false) {
         });
         
         state.credentials = { usuario, senha };
-        await setupSession(res.dados.token);
+        state.token = res.dados.token; // Definir o token imediatamente para a próxima requisição funcionar
+        
+        // Fazer a requisição automática de GET /usuarios/{id} após o login
+        const profileRes = await request(`/usuarios/${res.dados.usuario.id}`);
+        await setupSession(res.dados.token, profileRes.dados);
         
         if (!isAutoRefresh) {
             showToast('Bem-vindo de volta!', 'success');
@@ -255,9 +259,9 @@ const pages = {
         <div class="main-container" style="max-width: 450px;">
             <h1 class="logo">Editar Perfil</h1>
             <form id="edit-form">
-                <div class="form-group"><label>Nome</label><input type="text" name="edit-nome" value="${(state.user && state.user.nome) || ''}" required></div>
-                <div class="form-group"><label>Usuário</label><input type="text" name="edit-user" value="${(state.user && state.user.usuario) || ''}" required></div>
-                <div class="form-group"><label>E-mail</label><input type="email" name="edit-email" value="${(state.user && state.user.email) || ''}" required></div>
+                <div class="form-group"><label>Nome</label><input type="text" name="edit-nome" value="${(state.user && state.user.nome) || ''}"></div>
+                <div class="form-group"><label>Usuário</label><input type="text" name="edit-user" value="${(state.user && state.user.usuario) || ''}"></div>
+                <div class="form-group"><label>E-mail</label><input type="email" name="edit-email" value="${(state.user && state.user.email) || ''}"></div>
                 <div class="form-group"><label>Biografia</label><textarea name="edit-bio" rows="3">${(state.user && state.user.biografia) || ''}</textarea></div>
                 <div class="form-group"><label>URL da Foto</label><input type="text" name="edit-foto" value="${(state.user && state.user.foto) || ''}"></div>
                 <div class="form-group"><label>Nova Senha (opcional)</label><input type="password" name="edit-pass" placeholder="Deixe em branco para manter"></div>
@@ -343,15 +347,31 @@ function attachEvents(pageName) {
         const form = document.getElementById('edit-form');
         if (form) form.onsubmit = async (e) => {
             e.preventDefault();
-            const body = {
+            const body = {};
+            
+            const fields = {
                 nome: e.target['edit-nome'].value,
                 usuario: e.target['edit-user'].value,
                 email: e.target['edit-email'].value,
                 biografia: e.target['edit-bio'].value,
                 foto: e.target['edit-foto'].value
             };
+
+            // Adicionar ao body apenas o que mudou e não está vazio
+            Object.keys(fields).forEach(key => {
+                const value = fields[key].trim();
+                if (value && value !== state.user[key]) {
+                    body[key] = value;
+                }
+            });
+
             const senha = e.target['edit-pass'].value;
             if (senha) body.senha = senha;
+
+            if (Object.keys(body).length === 0) {
+                showToast('Nenhuma alteração detectada', 'info');
+                return;
+            }
 
             try {
                 const res = await request(`/usuarios/${state.user.id}`, {
