@@ -1,64 +1,82 @@
-### Variáveis globais
+### Variáveis de Ambiente
 @baseUrl = http://localhost:8080
-@contentType = application/json
+@usuarioSucesso = joao_updated
+@senhaSucesso = nova_senha_123
 
-### 1. Login com sucesso (usuário existente)
+### 1. Login com Sucesso
+# Deve retornar 200 OK com token e dados do usuário
 POST {{baseUrl}}/usuarios/login
-Content-Type: {{contentType}}
+Content-Type: application/json
 
 {
-  "usuario": "joao_silva",
-  "senha": "senha12345"
+    "usuario": "{{usuarioSucesso}}",
+    "senha": "{{senhaSucesso}}"
 }
 
-### 2. Login com credenciais inválidas (senha errada)
+### 2. Erro - Dados Incompletos (Sem Usuário)
+# Deve retornar 400 Bad Request (dados_incompletos)
 POST {{baseUrl}}/usuarios/login
-Content-Type: {{contentType}}
+Content-Type: application/json
 
 {
-  "usuario": "joao_silva",
-  "senha": "senha_errada"
+    "senha": "{{senhaSucesso}}"
 }
 
-### 3. Login com usuário inexistente
+### 3. Erro - Dados Incompletos (Sem Senha)
+# Deve retornar 400 Bad Request (dados_incompletos)
 POST {{baseUrl}}/usuarios/login
-Content-Type: {{contentType}}
+Content-Type: application/json
 
 {
-  "usuario": "usuario_inexistente",
-  "senha": "senha12345"
+    "usuario": "{{usuarioSucesso}}"
 }
 
-### 4. Login sem usuário (validação)
+### 4. Erro - Usuário muito curto (Validação Jakarta)
+# Deve retornar 400 Bad Request (dados_invalidos)
 POST {{baseUrl}}/usuarios/login
-Content-Type: {{contentType}}
+Content-Type: application/json
 
 {
-  "senha": "senha12345"
+    "usuario": "jo",
+    "senha": "{{senhaSucesso}}"
 }
 
-### 5. Login sem senha (validação)
+### 5. Erro - Usuário com caracteres inválidos (Validação Jakarta)
+# Deve retornar 400 Bad Request (dados_invalidos)
 POST {{baseUrl}}/usuarios/login
-Content-Type: {{contentType}}
+Content-Type: application/json
 
 {
-  "usuario": "joao_silva"
+    "usuario": "joao@123",
+    "senha": "{{senhaSucesso}}"
 }
 
-### 6. Login com usuário muito curto (validação)
+### 6. Erro - Senha muito curta (Validação Jakarta)
+# Deve retornar 400 Bad Request (dados_invalidos)
 POST {{baseUrl}}/usuarios/login
-Content-Type: {{contentType}}
+Content-Type: application/json
 
 {
-  "usuario": "ab",
-  "senha": "senha12345"
+    "usuario": "{{usuarioSucesso}}",
+    "senha": "123"
 }
 
-### 7. Login com senha muito curta (validação)
+### 7. Erro - Credenciais Inválidas (Senha errada)
+# Deve retornar 401 Unauthorized (credenciais_invalidas)
 POST {{baseUrl}}/usuarios/login
-Content-Type: {{contentType}}
+Content-Type: application/json
 
 {
-  "usuario": "joao_silva",
-  "senha": "123"
+    "usuario": "{{usuarioSucesso}}",
+    "senha": "senha_errada_123"
+}
+
+### 8. Erro - Credenciais Inválidas (Usuário não existe)
+# Deve retornar 401 Unauthorized (credenciais_invalidas)
+POST {{baseUrl}}/usuarios/login
+Content-Type: application/json
+
+{
+    "usuario": "usuario_inexistente",
+    "senha": "{{senhaSucesso}}"
 }

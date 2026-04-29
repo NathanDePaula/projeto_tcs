@@ -1,0 +1,45 @@
+### Variáveis globais
+@baseUrl = http://localhost:8080
+@contentType = application/json
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJpbnN0YWdyYW0tYXBpIiwic3ViIjoiMDFmODY2NzItYWMyOC00NWI5LTk2ZGUtNjExMDljZmI0MjhkIiwiZXhwIjoxNzc3NDQ5NDc3fQ.irtzM4lAz-8Nznun5xxi08MEe8Nu3fd-_ZDhOfF05ic
+@usuarioId = 01f86672-ac28-45b9-96de-61109cfb428d
+
+### 1. Listar todos os usuários (Exige Autenticação)
+GET {{baseUrl}}/usuarios
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+### 2. Obter usuário por ID (Exige autenticação)
+GET {{baseUrl}}/usuarios/{{usuarioId}}
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+### 3. Atualizar usuário (Exige autenticação)
+PATCH {{baseUrl}}/usuarios/{{usuarioId}}
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+    "nome": "João Atualizado",
+    "email": "joao_novo@email.com",
+    "usuario": "joao_updated",
+    "biografia": "Nova biografia aqui",
+    "foto": "https://api.projeto.com/fotos/joao_novo.jpg",
+    "senha": "nova_senha_123"
+}
+
+### 4. Deletar usuário (Exige autenticação)
+DELETE {{baseUrl}}/usuarios/{{usuarioId}}
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+### 5. Cadastrar novo usuário (Público)
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+    "nome": "Maria Silva",
+    "email": "maria@email.com",
+    "usuario": "maria_silva",
+    "senha": "password123"
+}

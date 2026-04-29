@@ -1,17 +1,20 @@
 package com.projetotcs.instagram.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class UsuarioSchema {
-    private String id;
-    private String nomeCompleto;
-    private String usuario;
-    private String email;
-    private String biografia;
-    private String fotoUrl;
+public record UsuarioSchema(
+    String id,
+    
+    @JsonProperty("nome_completo")
+    String nomeCompleto,
+    
+    String usuario,
+    
+    String email,
+    
+    String biografia,
+    
+    @JsonProperty("foto_url")
+    String fotoUrl
+) {
 }

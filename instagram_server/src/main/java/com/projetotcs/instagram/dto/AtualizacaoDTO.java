@@ -1,0 +1,28 @@
+package com.projetotcs.instagram.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+public record AtualizacaoDTO(
+    @Size(min = 3, max = 60, message = "O nome deve ter entre 3 e 60 caracteres")
+    @Pattern(regexp = "^[\\p{L} ]+$", message = "Nome só pode conter letras e espaços")
+    String nome,
+
+    @Email(message = "Formato de e-mail inválido")
+    @Size(min = 10, max = 35, message = "O e-mail deve ter entre 10 e 35 caracteres")
+    String email,
+
+    @Size(min = 3, max = 30, message = "O usuário deve ter entre 3 e 30 caracteres")
+    @Pattern(regexp = "^[a-z0-9_]+$", message = "Usuário só pode conter letras minúsculas, números e underline")
+    String usuario,
+
+    @Size(max = 150, message = "A biografia deve ter no máximo 150 caracteres")
+    String biografia,
+
+    String foto,
+
+    @Size(min = 8, max = 24, message = "A senha deve ter entre 8 e 24 caracteres")
+    String senha
+) {
+}
