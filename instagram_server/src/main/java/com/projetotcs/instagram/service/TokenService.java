@@ -3,6 +3,8 @@ package com.projetotcs.instagram.service;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Date;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -26,14 +28,27 @@ public class TokenService {
     public String generateToken(Usuario usuario) throws JWTCreationException{
         // Define o algoritmo de assinatura do projeto usando a chave secreta
         Algorithm algorithm = Algorithm.HMAC256(secret);
+        // Define um ID único para o token, que pode ser usado para rastrear ou invalidar tokens específicos se necessário (blacklist)
+        String jti = UUID.randomUUID().toString();
 
         // Cria o token utilizando o JWT
         String token = JWT.create()
                 .withIssuer("instagram-api") // Define o emissor do token
                 .withSubject(usuario.getId().toString()) // Define o sujeito do token (ID do usuário). Vai ser usado para verificações do usuário
+                .withJWTId(jti) // Define o ID único do token (JTI)
+                .withIssuedAt(new Date()) // Define a data de emissão do token
                 .withExpiresAt(generateExpirationDate()) // Define a expiração do token (5 minutos)
                 .sign(algorithm); // Assina o token com o algoritmo definido
         return token;
+    }
+
+    public String getJti(String token) {
+        Algorithm algorithm = Algorithm.HMAC256(secret);
+        return JWT.require(algorithm)
+                .withIssuer("instagram-api")
+                .build()
+                .verify(token)
+                .getId();
     }
 
     public Instant getExpirationDate(String token) {

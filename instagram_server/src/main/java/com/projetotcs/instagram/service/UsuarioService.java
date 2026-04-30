@@ -11,6 +11,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.projetotcs.instagram.domain.entity.BlacklistedToken;
 import com.projetotcs.instagram.domain.entity.UserRole;
 import com.projetotcs.instagram.domain.entity.Usuario;
 import com.projetotcs.instagram.dto.AtualizacaoDTO;
@@ -19,12 +20,16 @@ import com.projetotcs.instagram.dto.LoginDTO;
 import com.projetotcs.instagram.dto.PadraoResposta;
 import com.projetotcs.instagram.exception.*;
 import com.projetotcs.instagram.dto.UsuarioSchema;
+import com.projetotcs.instagram.repository.BlacklistedTokenRepository;
 import com.projetotcs.instagram.repository.UsuarioRepository;
 
 @Service
 public class UsuarioService {
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private BlacklistedTokenRepository blacklistRepository;
 
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -121,9 +126,15 @@ public class UsuarioService {
         return new PadraoResposta("sucesso", "LOGIN_SUCESSO", "Login realizado com sucesso", dados);
     }
 
-    public PadraoResposta logout() {
-        // O logout em sistemas stateless (JWT) é tratado principalmente no cliente
-        // No servidor, retornamos sucesso para indicar que o comando foi recebido
+    public PadraoResposta logout(String token) {
+        // Recupera o JTI e a data de expiração do token
+        String jti = tokenService.getJti(token);
+        var expirationDate = tokenService.getExpirationDate(token);
+        
+        // Salva o token na blacklist
+        BlacklistedToken blacklistedToken = new BlacklistedToken(jti, expirationDate);
+        blacklistRepository.save(blacklistedToken);
+
         return new PadraoResposta("sucesso", "LOGOUT_SUCESSO", "Logout realizado com sucesso");
     }
 

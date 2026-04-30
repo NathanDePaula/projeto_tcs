@@ -18,6 +18,7 @@ import com.projetotcs.instagram.dto.LoginDTO;
 import com.projetotcs.instagram.dto.PadraoResposta;
 import com.projetotcs.instagram.service.UsuarioService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -45,8 +46,13 @@ public class UsuarioController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
-        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.logout());
+    public ResponseEntity<?> logout(HttpServletRequest request) {
+        var authHeader = request.getHeader("Authorization");
+        if (authHeader == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new PadraoResposta("erro", "TOKEN_AUSENTE", "Token de autorização não enviado"));
+        }
+        var token = authHeader.replace("Bearer ", "");
+        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.logout(token));
     }
 
     @GetMapping("/{id}")
