@@ -34,7 +34,6 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable()) // Desabilita CSRF para APIs REST
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Sem sessão
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/", "/index.html", "/app.js", "/style.css", "/static/**").permitAll() // Permite recursos estáticos
                 .requestMatchers(HttpMethod.POST, "/usuarios").permitAll() // Permite o endpoint de cadastro
                 .requestMatchers(HttpMethod.POST, "/usuarios/login").permitAll() // Permite o endpoint de login 
                 .requestMatchers("/error").permitAll() // Permitir mensagens de erros sem precisar de autenticação
