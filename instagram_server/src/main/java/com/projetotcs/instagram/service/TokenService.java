@@ -2,7 +2,7 @@ package com.projetotcs.instagram.service;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.UUID;
 
@@ -13,6 +13,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTCreationException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.projetotcs.instagram.domain.entity.Usuario;
 
 @Service
@@ -22,7 +23,7 @@ public class TokenService {
 
     public Instant generateExpirationDate(){
         // Define a expiração do token para 5 minutos a partir do momento atual
-        return LocalDateTime.now().plusMinutes(5).toInstant(ZoneOffset.of("-03:00")); 
+        return LocalDateTime.now().plusMinutes(5).atZone(ZoneId.systemDefault()).toInstant(); 
     }
 
     public String generateToken(Usuario usuario) throws JWTCreationException{
@@ -42,30 +43,27 @@ public class TokenService {
         return token;
     }
 
-    public String getJti(String token) {
+    private DecodedJWT decodeToken(String token) {
         Algorithm algorithm = Algorithm.HMAC256(secret);
         return JWT.require(algorithm)
                 .withIssuer("instagram-api")
                 .build()
-                .verify(token)
-                .getId();
+                .verify(token);
+    }
+
+    public String getJti(String token) {
+        return decodeToken(token).getId();
     }
 
     public Instant getExpirationDate(String token) {
-        Algorithm algorithm = Algorithm.HMAC256(secret);
-        return JWT.require(algorithm)
-                .withIssuer("instagram-api")
-                .build()
-                .verify(token)
-                .getExpiresAtAsInstant();
+        return decodeToken(token).getExpiresAtAsInstant();
+    }
+
+    public DecodedJWT getDecodedJWT(String token) throws JWTVerificationException {
+        return decodeToken(token);
     }
 
     public String validateToken(String token) throws JWTVerificationException{
-        Algorithm algorithm = Algorithm.HMAC256(secret);
-        return JWT.require(algorithm) // Define o algoritmo de verificação do token
-                .withIssuer("instagram-api") // Define o emissor esperado do token para validação
-                .build() // Monta o token para validação
-                .verify(token) // Verifica o token e lança uma exceção se for inválido ou expirado
-                .getSubject(); // Retorna o ID do usuário contido no token
+        return decodeToken(token).getSubject(); // Retorna o ID do usuário contido no token
     }
 }

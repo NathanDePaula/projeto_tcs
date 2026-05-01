@@ -42,13 +42,16 @@ public class SecurityFilter extends OncePerRequestFilter{
         try {
             var token = this.recoverToken(request);
             if (token != null) {
+                    // Valida o token e recupera o DecodedJWT para evitar verificação dupla
+                    var decodedJWT = tokenService.getDecodedJWT(token);
+                    String jti = decodedJWT.getId();
+                    
                     // Verifica se o token está na blacklist
-                    String jti = tokenService.getJti(token);
                     if (blacklistRepository.existsByJti(jti)) {
                         throw new JWTVerificationException("Token inválido ou expirado");
                     }
 
-                    var id = tokenService.validateToken(token); // Valida o token e recupera o ID do usuário (subject)
+                    var id = decodedJWT.getSubject(); // Recupera o ID do usuário (subject)
                     UserDetails user = repository.findById(id).orElse(null);
                     
                     // Caso o usuário exista, criar um objeto de autenticação do Spring Security
@@ -74,10 +77,10 @@ public class SecurityFilter extends OncePerRequestFilter{
         // Pega o header de autorização da requisição
         var authHeader = request.getHeader("Authorization");
         
-        // Se o header de autorização não estiver presente, retorna null
-        if (authHeader == null) return null;
+        // Se o header de autorização não estiver presente ou não começar com Bearer, retorna null
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) return null;
 
-        return authHeader.replace("Bearer ", ""); // Remove "Bearer " do início do token
+        return authHeader.substring(7); // Remove "Bearer " do início do token
     }
     
 }
