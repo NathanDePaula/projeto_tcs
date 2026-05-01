@@ -11,7 +11,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.projetotcs.instagram.domain.entity.BlacklistedToken;
+import com.projetotcs.instagram.domain.entity.Blacklist;
 import com.projetotcs.instagram.domain.entity.UserRole;
 import com.projetotcs.instagram.domain.entity.Usuario;
 import com.projetotcs.instagram.dto.AtualizacaoDTO;
@@ -20,7 +20,7 @@ import com.projetotcs.instagram.dto.LoginDTO;
 import com.projetotcs.instagram.dto.PadraoResposta;
 import com.projetotcs.instagram.exception.*;
 import com.projetotcs.instagram.dto.UsuarioSchema;
-import com.projetotcs.instagram.repository.BlacklistedTokenRepository;
+import com.projetotcs.instagram.repository.BlacklistRepository;
 import com.projetotcs.instagram.repository.UsuarioRepository;
 
 @Service
@@ -29,7 +29,7 @@ public class UsuarioService {
     private UsuarioRepository usuarioRepository;
 
     @Autowired
-    private BlacklistedTokenRepository blacklistRepository;
+    private BlacklistRepository blacklistRepository;
 
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -132,7 +132,7 @@ public class UsuarioService {
         var expirationDate = tokenService.getExpirationDate(token);
         
         // Salva o token na blacklist
-        BlacklistedToken blacklistedToken = new BlacklistedToken(jti, expirationDate);
+        Blacklist blacklistedToken = new Blacklist(jti, expirationDate);
         blacklistRepository.save(blacklistedToken);
 
         return new PadraoResposta("sucesso", "LOGOUT_SUCESSO", "Logout realizado com sucesso");

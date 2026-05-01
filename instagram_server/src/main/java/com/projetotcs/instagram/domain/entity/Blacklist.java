@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class BlacklistedToken {
+public class Blacklist {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -29,7 +29,7 @@ public class BlacklistedToken {
     @Column(name = "expiration_date", nullable = false)
     private Instant expirationDate;
 
-    public BlacklistedToken(String jti, Instant expirationDate) {
+    public Blacklist(String jti, Instant expirationDate) {
         this.jti = jti;
         this.expirationDate = expirationDate;
     }

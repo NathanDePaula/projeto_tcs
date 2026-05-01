@@ -12,7 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.projetotcs.instagram.repository.BlacklistedTokenRepository;
+import com.projetotcs.instagram.repository.BlacklistRepository;
 import com.projetotcs.instagram.repository.UsuarioRepository;
 import com.projetotcs.instagram.service.TokenService;
 
@@ -31,7 +31,7 @@ public class SecurityFilter extends OncePerRequestFilter{
     UsuarioRepository repository;
 
     @Autowired
-    BlacklistedTokenRepository blacklistRepository;
+    BlacklistRepository blacklistRepository;
 
     @Autowired
     @Qualifier("handlerExceptionResolver")
