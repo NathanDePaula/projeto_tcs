@@ -26,6 +26,9 @@ public class SecurityConfig {
     @Autowired
     SecurityFilter securityFilter;
 
+    @Autowired
+    Logging logging;
+
     // Declarando a corrente de filtros de segurança
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -39,8 +42,9 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll() // Permitir mensagens de erros sem precisar de autenticação
                 .anyRequest().authenticated() // Tudo o resto exige autenticação
             )
-            // Adiciona o filtro de autenticação JWT antes do filtro de autenticação padrão do Spring Security
-            .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);
+            // Ordem: Logging -> SecurityFilter -> UsernamePasswordAuthenticationFilter
+            .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(logging, SecurityFilter.class);
 
         return http.build();
     }

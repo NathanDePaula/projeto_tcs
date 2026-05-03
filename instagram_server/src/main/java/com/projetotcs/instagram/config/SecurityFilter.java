@@ -42,7 +42,7 @@ public class SecurityFilter extends OncePerRequestFilter{
         try {
             var token = this.recoverToken(request);
             if (token != null) {
-                    // Valida o token e recupera o DecodedJWT para evitar verificação dupla
+                    // Valida o token e recupera o DecodedJWT
                     var decodedJWT = tokenService.getDecodedJWT(token);
                     String jti = decodedJWT.getId();
                     
