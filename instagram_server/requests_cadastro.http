@@ -1,5 +1,5 @@
 ### Variáveis globais
-@baseUrl = http://localhost:8080
+@baseUrl = http://localhost:24900
 @contentType = application/json
 
 ### 1. Criar usuário com sucesso (dados válidos)
