@@ -120,13 +120,15 @@ async function login(usuario, senha, isAutoRefresh = false) {
         state.credentials = { usuario, senha };
         state.token = res.dados.token; // Definir o token imediatamente para a próxima requisição funcionar
         
-        // Fazer a requisição automática de GET /usuarios/{id} após o login
-        const profileRes = await request(`/usuarios/${res.dados.usuario.id}`);
-        await setupSession(res.dados.token, profileRes.dados);
-        
         if (!isAutoRefresh) {
+            // Fazer a requisição automática de GET /usuarios/{id} apenas após o login manual
+            const profileRes = await request(`/usuarios/${res.dados.usuario.id}`);
+            await setupSession(res.dados.token, profileRes.dados);
             showToast('Bem-vindo de volta!', 'success');
             renderPage('profile');
+        } else {
+            // Renovação silenciosa de token, sem buscar o perfil novamente
+            await setupSession(res.dados.token, state.user);
         }
         return true;
     } catch (err) {
@@ -399,17 +401,117 @@ async function deleteAccount() {
 
 // --- Inicialização ---
 
+let apiSpec = null;
+
+async function initRequestBuilder() {
+    try {
+        const response = await fetch('../instagram-api.json');
+        apiSpec = await response.json();
+        const select = document.getElementById('request-template-select');
+        
+        if (!select) return;
+
+        Object.keys(apiSpec.paths).forEach(path => {
+            const methods = apiSpec.paths[path];
+            Object.keys(methods).forEach(method => {
+                const op = methods[method];
+                const option = document.createElement('option');
+                option.value = `${method.toUpperCase()}|${path}`;
+                option.innerText = `${method.toUpperCase()} ${path} (${op.summary || ''})`;
+                select.appendChild(option);
+            });
+        });
+
+        select.onchange = (e) => {
+            const [method, path] = e.target.value.split('|');
+            if (!method) return;
+
+            document.getElementById('builder-method').value = method;
+            
+            // Auto-preencher URL (substituindo {id} se possível)
+            let finalPath = path;
+            if (finalPath.includes('{id}') && state.user && state.user.id) {
+                finalPath = finalPath.replace('{id}', state.user.id);
+            }
+            document.getElementById('builder-url').value = finalPath;
+
+            // Auto-preencher Token
+            if (state.token) {
+                document.getElementById('builder-token').value = `Bearer ${state.token}`;
+            } else {
+                document.getElementById('builder-token').value = '';
+            }
+
+            // Auto-preencher Corpo (se houver exemplo)
+            const opData = apiSpec.paths[path][method.toLowerCase()];
+            if (opData.requestBody && opData.requestBody.content['application/json']) {
+                const example = opData.requestBody.content['application/json'].example;
+                document.getElementById('builder-body').value = JSON.stringify(example, null, 2);
+            } else {
+                document.getElementById('builder-body').value = '';
+            }
+        };
+
+        document.getElementById('btn-send-custom').onclick = async () => {
+            const method = document.getElementById('builder-method').value;
+            const path = document.getElementById('builder-url').value;
+            const token = document.getElementById('builder-token').value;
+            const bodyStr = document.getElementById('builder-body').value;
+
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = token;
+
+            let body = null;
+            if (bodyStr && bodyStr.trim() !== '') {
+                try {
+                    body = JSON.parse(bodyStr);
+                } catch (e) {
+                    showToast('JSON do corpo inválido', 'error');
+                    return;
+                }
+            }
+
+            try {
+                // Usamos a função request padrão mas com overrides se necessário
+                // Ou fazemos um fetch direto para total liberdade (como solicitado "qualquer parâmetro")
+                const baseUrl = state.apiUrl.endsWith('/') ? state.apiUrl.slice(0, -1) : state.apiUrl;
+                const url = `${baseUrl}${path.startsWith('/') ? path : '/' + path}`;
+
+                logDebug('info', `CUSTOM REQUEST: ${method} ${path}`, { headers, body });
+
+                const res = await fetch(url, {
+                    method: method,
+                    headers: headers,
+                    body: body ? JSON.stringify(body) : null
+                });
+
+                const data = await res.json();
+                logDebug(res.ok ? 'res' : 'err', `CUSTOM RESPONSE ${path}`, data);
+                if (res.ok) showToast('Requisição customizada enviada!', 'success');
+            } catch (err) {
+                logDebug('err', `CUSTOM ERROR ${path}`, err);
+                showToast('Erro na requisição customizada', 'error');
+            }
+        };
+
+    } catch (err) {
+        console.error("Erro ao carregar instagram-api.json:", err);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-    const toggleBtn = document.getElementById('toggle-console');
+    const toggleBtn = document.getElementById('toggle-debug-area');
     if (toggleBtn) {
         toggleBtn.onclick = () => {
-            const consoleEl = document.getElementById('debug-console');
-            if (consoleEl) {
-                consoleEl.classList.toggle('collapsed');
-                toggleBtn.innerText = consoleEl.classList.contains('collapsed') ? '▲' : '▼';
+            const debugArea = document.getElementById('debug-area');
+            if (debugArea) {
+                debugArea.classList.toggle('collapsed');
+                toggleBtn.innerText = debugArea.classList.contains('collapsed') ? '▲' : '▼';
             }
         };
     }
+
+    initRequestBuilder();
 
     if (state.token) {
         await setupSession(state.token, state.user);

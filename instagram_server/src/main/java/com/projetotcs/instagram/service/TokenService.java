@@ -35,7 +35,8 @@ public class TokenService {
         // Cria o token utilizando o JWT
         String token = JWT.create()
                 .withIssuer("instagram-api") // Define o emissor do token
-                .withSubject(usuario.getId().toString()) // Define o sujeito do token (ID do usuário). Vai ser usado para verificações do usuário
+                .withSubject(usuario.getId().toString()) // Define o sujeito do token (ID do usuário)
+                .withClaim("role", "admin".equals(usuario.getUsuario()) ? "ADMIN" : "USER") // Regra 2: Adiciona a role baseada no username
                 .withJWTId(jti) // Define o ID único do token (JTI)
                 .withIssuedAt(new Date()) // Define a data de emissão do token
                 .withExpiresAt(generateExpirationDate()) // Define a expiração do token (5 minutos)

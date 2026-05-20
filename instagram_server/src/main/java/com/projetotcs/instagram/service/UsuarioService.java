@@ -3,16 +3,18 @@ package com.projetotcs.instagram.service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.projetotcs.instagram.domain.entity.Blacklist;
-import com.projetotcs.instagram.domain.entity.UserRole;
 import com.projetotcs.instagram.domain.entity.Usuario;
 import com.projetotcs.instagram.dto.AtualizacaoDTO;
 import com.projetotcs.instagram.dto.CadastroDTO;
@@ -25,6 +27,8 @@ import com.projetotcs.instagram.repository.UsuarioRepository;
 
 @Service
 public class UsuarioService {
+    private final Map<String, String> usuariosAtivos = new ConcurrentHashMap<>();
+
     @Autowired
     private UsuarioRepository usuarioRepository;
 
@@ -40,6 +44,31 @@ public class UsuarioService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    public String getUsuariosAtivosLog() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== USUÁRIOS ATIVOS (IPs) ===\n");
+        if (usuariosAtivos.isEmpty()) {
+            sb.append("Nenhum usuário ativo no momento.");
+        } else {
+            usuariosAtivos.forEach((user, ip) -> sb.append("- Usuário: ").append(user).append(" | IP: ").append(ip).append("\n"));
+        }
+        sb.append("=============================\n");
+        return sb.toString();
+    }
+
+    private void validarPropriedade(String id) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AccessDeniedException("Usuário não autenticado.");
+        }
+
+        Usuario usuarioAutenticado = (Usuario) authentication.getPrincipal();
+        
+        // Se não for admin (username 'admin') e o ID for diferente do ID do usuário autenticado, nega o acesso
+        if (!"admin".equals(usuarioAutenticado.getUsuario()) && !usuarioAutenticado.getId().equals(id)) {
+            throw new AccessDeniedException("Você não tem permissão para alterar ou deletar este usuário.");
+        }
+    }
 
     private UsuarioSchema mapToSchema(Usuario usuario) {
         return new UsuarioSchema(
@@ -90,9 +119,6 @@ public class UsuarioService {
             usuario.setFoto(request.foto());
         }
 
-        // Setar role padrão como USER
-        usuario.setRole(UserRole.USER);
-
         // Salva o usuário no banco de dados
         usuarioRepository.save(usuario);
 
@@ -100,7 +126,7 @@ public class UsuarioService {
         return new PadraoResposta("sucesso", "USUARIO_CRIADO", "Usuário cadastrado com sucesso");
     }
 
-    public PadraoResposta login(LoginDTO request){
+    public PadraoResposta login(LoginDTO request, String ip){
         // Criando um token de autenticação (não autenticado ainda)
         var usuarioSenha = new UsernamePasswordAuthenticationToken(request.usuario(), request.senha());
         
@@ -109,6 +135,9 @@ public class UsuarioService {
         
         // Recupera o usuário autenticado do principal
         Usuario usuarioAutenticado = (Usuario) auth.getPrincipal();
+
+        // Adiciona à lista de usuários ativos e loga
+        usuariosAtivos.put(usuarioAutenticado.getUsuario(), ip);
 
         // Gera o token JWT
         var token = tokenService.generateToken(usuarioAutenticado);
@@ -135,6 +164,16 @@ public class UsuarioService {
         Blacklist blacklistedToken = new Blacklist(jti, expirationDate);
         blacklistRepository.save(blacklistedToken);
 
+        // Remover da lista de usuários ativos
+        try {
+            String userId = tokenService.validateToken(token);
+            usuarioRepository.findById(userId).ifPresent(u -> {
+                usuariosAtivos.remove(u.getUsuario());
+            });
+        } catch (Exception e) {
+            // Se o token já for inválido/expirado, apenas ignoramos a remoção manual
+        }
+
         return new PadraoResposta("sucesso", "LOGOUT_SUCESSO", "Logout realizado com sucesso");
     }
 
@@ -148,6 +187,7 @@ public class UsuarioService {
     }
 
     public PadraoResposta atualizarUsuario(String id, AtualizacaoDTO request) {
+        validarPropriedade(id);
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException("Usuário não encontrado."));
 
@@ -199,6 +239,7 @@ public class UsuarioService {
     }
 
     public PadraoResposta deletarUsuario(String id) {
+        validarPropriedade(id);
         if (!usuarioRepository.existsById(id)) {
             throw new UsuarioNaoEncontradoException("Usuário não encontrado.");
         }

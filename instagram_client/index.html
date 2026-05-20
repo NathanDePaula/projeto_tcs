@@ -17,13 +17,53 @@
     <!-- Container de Toasts -->
     <div id="toast-container"></div>
 
-    <!-- Console de Debug -->
-    <div id="debug-console" class="debug-console collapsed">
-        <div class="debug-header">
-            <span>Console de Comunicação (Cliente ↔ Servidor)</span>
-            <button id="toggle-console">▲</button>
+    <!-- Área de Debug e Ferramentas -->
+    <div id="debug-area" class="debug-area collapsed">
+        <div class="debug-header-global">
+            <span id="debug-title">Ferramentas de Desenvolvedor</span>
+            <button id="toggle-debug-area">▲</button>
         </div>
-        <div id="debug-content" class="debug-content"></div>
+        
+        <div class="debug-split-container">
+            <!-- Request Builder -->
+            <div id="request-builder" class="debug-panel">
+                <div class="panel-header">Request Builder (Modelos API)</div>
+                <div class="builder-content">
+                    <div class="template-selector">
+                        <label>Modelo:</label>
+                        <select id="request-template-select">
+                            <option value="">Selecione um endpoint...</option>
+                        </select>
+                    </div>
+                    <div class="builder-form">
+                        <div class="form-row">
+                            <select id="builder-method">
+                                <option value="GET">GET</option>
+                                <option value="POST">POST</option>
+                                <option value="PATCH">PATCH</option>
+                                <option value="DELETE">DELETE</option>
+                            </select>
+                            <input type="text" id="builder-url" placeholder="/usuarios/...">
+                        </div>
+                        <div class="form-row">
+                            <label>Token (Authorization):</label>
+                            <input type="text" id="builder-token" placeholder="Bearer ...">
+                        </div>
+                        <div class="form-row">
+                            <label>Corpo (JSON):</label>
+                            <textarea id="builder-body" rows="4" placeholder="{}"></textarea>
+                        </div>
+                        <button id="btn-send-custom">Enviar Requisição</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console de Debug -->
+            <div id="debug-console" class="debug-panel">
+                <div class="panel-header">Console de Comunicação</div>
+                <div id="debug-content" class="debug-content"></div>
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>

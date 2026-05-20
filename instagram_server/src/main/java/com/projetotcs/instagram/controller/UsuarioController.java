@@ -41,8 +41,9 @@ public class UsuarioController {
     }
     
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginDTO request) {
-        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.login(request));
+    public ResponseEntity<?> login(@Valid @RequestBody LoginDTO request, HttpServletRequest servletRequest) {
+        String ip = servletRequest.getRemoteAddr();
+        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.login(request, ip));
     }
 
     @PostMapping("/logout")

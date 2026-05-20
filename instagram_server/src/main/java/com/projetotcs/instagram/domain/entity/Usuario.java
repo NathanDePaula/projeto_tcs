@@ -48,13 +48,10 @@ public class Usuario implements UserDetails {
     @Column(name = "foto")
     private String foto = "https://www.pngall.com/wp-content/uploads/5/Profile-PNG-High-Quality-Image.png";
 
-    @Column(name = "role", nullable = false)
-    private UserRole role;
-
     // Garante as autorizações das ROLES para o usuário
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        if (this.role == UserRole.ADMIN) {
+        if ("admin".equals(this.usuario)) {
             return List.of(new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ROLE_USER"));
         } else {
             return List.of(new SimpleGrantedAuthority("ROLE_USER"));
