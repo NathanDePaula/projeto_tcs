@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://localhost:8080",
+      "url": "http://localhost:24900",
       "description": "API - Instagram"
     }
   ],
@@ -87,19 +87,6 @@
         "summary": "Logout do usuário",
         "description": "Encerrando a sessão do usuário e revoga acesso token JWT.",
         "operationId": "logoutUsuario",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LogoutRequest"
-              },
-              "example": {
-                "token": "eyJhbGci..."
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "Logout realizado com sucesso",
@@ -145,30 +132,8 @@
           "usuarios"
         ],
         "summary": "Listar usuários",
-        "description": "Retorna a lista paginada de usuários cadastrados.",
+        "description": "Retorna a lista de usuários cadastrados.",
         "operationId": "listarUsuarios",
-        "parameters": [
-          {
-            "name": "pagina",
-            "in": "query",
-            "description": "Número da página",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 1
-            }
-          },
-          {
-            "name": "limite",
-            "in": "query",
-            "description": "Itens por página",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 10
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Usuários listados com sucesso",
@@ -633,11 +598,6 @@
         ]
       },
       "AtualizacaoRequest": {
-        "required": [
-          "email",
-          "nome",
-          "usuario"
-        ],
         "type": "object",
         "properties": {
           "nome": {
@@ -691,9 +651,6 @@
           "codigo": "LISTAGEM_SUCESSO",
           "mensagem": "Usuários listados com sucesso",
           "dados": {
-            "total": 10,
-            "pagina": 1,
-            "limite": 10,
             "usuarios": [
               {
                 "id": "1",
@@ -717,7 +674,7 @@
             "type": "string",
             "example": "1"
           },
-          "nome_completo": {
+          "nome": {
             "type": "string",
             "example": "João da Silva"
           },
