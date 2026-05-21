@@ -70,6 +70,19 @@ public class UsuarioService {
         }
     }
 
+    private void validarAdmin() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AccessDeniedException("Usuário não autenticado.");
+        }
+
+        Usuario usuarioAutenticado = (Usuario) authentication.getPrincipal();
+        
+        if (!"admin".equals(usuarioAutenticado.getUsuario())) {
+            throw new AccessDeniedException("Você não tem permissão para listar todos os usuários.");
+        }
+    }
+
     private UsuarioSchema mapToSchema(Usuario usuario) {
         return new UsuarioSchema(
                 usuario.getId().toString(),
@@ -82,6 +95,8 @@ public class UsuarioService {
     }
 
     public PadraoResposta listarUsuarios() {
+        validarAdmin();
+
         List<UsuarioSchema> usuarios = usuarioRepository.findAll()
                 .stream()
                 .map(this::mapToSchema)
@@ -93,7 +108,11 @@ public class UsuarioService {
         resposta.setStatus("sucesso");
         resposta.setCodigo("LISTAGEM_SUCESSO");
         resposta.setMensagem("Usuários listados com sucesso");
-        resposta.setDados(usuarios);
+        
+        Map<String, Object> dados = new HashMap<>();
+        dados.put("usuarios", usuarios);
+        resposta.setDados(dados);
+        
         return resposta;
     }
 

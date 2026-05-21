@@ -210,7 +210,7 @@ const pages = {
             </div>
             
             <div class="api-config">
-                <button class="link-btn" id="btn-toggle-api">⚙ Configurar API</button>
+                <button class="link-btn" id="btn-toggle-api">⚙ Configurar Servidor</button>
                 <div id="api-settings" style="display: none; margin-top: 10px;">
                     <div class="form-group">
                         <label style="font-size: 12px;">Endpoint da API:</label>
