@@ -3,7 +3,7 @@ package com.projetotcs.instagram.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record UsuarioSchema(
-    String id,
+    Long id,
     
     @JsonProperty("nome")
     String nomeCompleto,

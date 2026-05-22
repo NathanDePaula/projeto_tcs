@@ -261,11 +261,11 @@ const pages = {
         <div class="main-container" style="max-width: 450px;">
             <h1 class="logo">Editar Perfil</h1>
             <form id="edit-form">
-                <div class="form-group"><label>Nome</label><input type="text" name="edit-nome" value="${(state.user && state.user.nome) || ''}"></div>
-                <div class="form-group"><label>Usuário</label><input type="text" name="edit-user" value="${(state.user && state.user.usuario) || ''}"></div>
-                <div class="form-group"><label>E-mail</label><input type="email" name="edit-email" value="${(state.user && state.user.email) || ''}"></div>
-                <div class="form-group"><label>Biografia</label><textarea name="edit-bio" rows="3">${(state.user && state.user.biografia) || ''}</textarea></div>
-                <div class="form-group"><label>URL da Foto</label><input type="text" name="edit-foto" value="${(state.user && state.user.foto) || ''}"></div>
+                <div class="form-group"><label>Nome</label><input type="text" name="edit-nome" placeholder="${(state.user && state.user.nome) || ''}"></div>
+                <div class="form-group"><label>Usuário</label><input type="text" name="edit-user" placeholder="${(state.user && state.user.usuario) || ''}"></div>
+                <div class="form-group"><label>E-mail</label><input type="email" name="edit-email" placeholder="${(state.user && state.user.email) || ''}"></div>
+                <div class="form-group"><label>Biografia</label><textarea name="edit-bio" rows="3" placeholder="${(state.user && state.user.biografia) || ''}"></textarea></div>
+                <div class="form-group"><label>URL da Foto</label><input type="text" name="edit-foto" placeholder="${(state.user && state.user.foto) || ''}"></div>
                 <div class="form-group"><label>Nova Senha (opcional)</label><input type="password" name="edit-pass" placeholder="Deixe em branco para manter"></div>
                 <button type="submit">Salvar Alterações</button>
                 <button type="button" class="secondary" onclick="renderPage('profile')">Cancelar</button>
@@ -380,8 +380,18 @@ function attachEvents(pageName) {
                     method: 'PATCH',
                     body: JSON.stringify(body)
                 });
+                
+                const usernameChanged = body.usuario && body.usuario !== state.credentials?.usuario;
+                if (body.usuario && state.credentials) state.credentials.usuario = body.usuario;
+                if (body.senha && state.credentials) state.credentials.senha = body.senha;
+
                 state.user = res.dados;
                 localStorage.setItem('user', JSON.stringify(state.user));
+
+                if (usernameChanged && state.credentials) {
+                    await login(state.credentials.usuario, state.credentials.senha, true);
+                }
+
                 showToast('Perfil atualizado!', 'success');
                 renderPage('profile');
             } catch (err) {}

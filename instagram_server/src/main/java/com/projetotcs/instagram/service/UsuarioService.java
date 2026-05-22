@@ -56,9 +56,9 @@ public class UsuarioService {
         return sb.toString();
     }
 
-    private void validarPropriedade(String id) {
+    private void validarPropriedade(Long id) {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getPrincipal() instanceof Usuario)) {
             throw new AccessDeniedException("Usuário não autenticado.");
         }
 
@@ -72,7 +72,7 @@ public class UsuarioService {
 
     private void validarAdmin() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getPrincipal() instanceof Usuario)) {
             throw new AccessDeniedException("Usuário não autenticado.");
         }
 
@@ -85,7 +85,7 @@ public class UsuarioService {
 
     private UsuarioSchema mapToSchema(Usuario usuario) {
         return new UsuarioSchema(
-                usuario.getId().toString(),
+                usuario.getId(),
                 usuario.getNomeCompleto(),
                 usuario.getUsuario(),
                 usuario.getEmail(),
@@ -117,6 +117,11 @@ public class UsuarioService {
     }
 
     public PadraoResposta cadastrarUsuario(CadastroDTO request) {
+        // Não é permitido criar novas contas com o username "admin"
+        if ("admin".equalsIgnoreCase(request.usuario())) {
+            throw new UsuarioJaExisteException("O username 'admin' é reservado e não pode ser utilizado.");
+        }
+
         // Verificar se o usuário já existe
         if (usuarioRepository.existsByUsuario(request.usuario())) throw new UsuarioJaExisteException("Este usuário já existe.");
         
@@ -185,7 +190,8 @@ public class UsuarioService {
 
         // Remover da lista de usuários ativos
         try {
-            String userId = tokenService.validateToken(token);
+            String subject = tokenService.validateToken(token);
+            Long userId = Long.valueOf(subject);
             usuarioRepository.findById(userId).ifPresent(u -> {
                 usuariosAtivos.remove(u.getUsuario());
             });
@@ -196,7 +202,7 @@ public class UsuarioService {
         return new PadraoResposta("sucesso", "LOGOUT_SUCESSO", "Logout realizado com sucesso");
     }
 
-    public PadraoResposta obterUsuarioPorId(String id) {
+    public PadraoResposta obterUsuarioPorId(Long id) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException("Usuário não encontrado."));
         
@@ -205,12 +211,16 @@ public class UsuarioService {
         return resposta;
     }
 
-    public PadraoResposta atualizarUsuario(String id, AtualizacaoDTO request) {
+    public PadraoResposta atualizarUsuario(Long id, AtualizacaoDTO request, String token) {
         validarPropriedade(id);
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException("Usuário não encontrado."));
 
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        Usuario usuarioAutenticado = (Usuario) authentication.getPrincipal();
+
         boolean atualizou = false;
+        boolean usernameAlterado = false;
 
         if (request.nome() != null) {
             usuario.setNomeCompleto(request.nome());
@@ -223,12 +233,26 @@ public class UsuarioService {
         }
 
         if (request.usuario() != null) {
+            // O username da conta admin original não pode ser editado.
+            if ("admin".equals(usuario.getUsuario()) && !usuario.getUsuario().equals(request.usuario())) {
+                throw new AccessDeniedException("O username da conta admin original não pode ser alterado.");
+            }
+
+            // Não é permitido que usuários comuns alterem seus usernames para "admin".
+            if (!"admin".equals(usuario.getUsuario()) && "admin".equalsIgnoreCase(request.usuario())) {
+                throw new AccessDeniedException("Não é permitido alterar o username para 'admin'.");
+            }
+
             // Verificar se o novo nome de usuário já está em uso por outro ID
             if (!usuario.getUsuario().equals(request.usuario()) && usuarioRepository.existsByUsuario(request.usuario())) {
                 throw new UsuarioJaExisteException("Este nome de usuário já está em uso.");
             }
-            usuario.setUsuario(request.usuario());
-            atualizou = true;
+            
+            if (!usuario.getUsuario().equals(request.usuario())) {
+                usuario.setUsuario(request.usuario());
+                atualizou = true;
+                usernameAlterado = true;
+            }
         }
         
         if (request.biografia() != null) {
@@ -252,16 +276,25 @@ public class UsuarioService {
 
         usuarioRepository.save(usuario);
 
+        // Quando o username de um usuário comum é editado por ele mesmo (não por um admin), o token utilizado na requisição deve ser adicionado a blacklist.
+        if (usernameAlterado && !"admin".equals(usuarioAutenticado.getUsuario())) {
+            this.logout(token);
+        }
+
         PadraoResposta resposta = new PadraoResposta("sucesso", "USUARIO_ATUALIZADO", "Usuário atualizado com sucesso");
         resposta.setDados(mapToSchema(usuario));
         return resposta;
     }
 
-    public PadraoResposta deletarUsuario(String id) {
+    public PadraoResposta deletarUsuario(Long id) {
         validarPropriedade(id);
-        if (!usuarioRepository.existsById(id)) {
-            throw new UsuarioNaoEncontradoException("Usuário não encontrado.");
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new UsuarioNaoEncontradoException("Usuário não encontrado."));
+                
+        if ("admin".equals(usuario.getUsuario())) {
+            throw new AccessDeniedException("A conta admin original não pode ser excluída.");
         }
+        
         usuarioRepository.deleteById(id);
         return new PadraoResposta("sucesso", "USUARIO_DELETADO", "Usuário deletado com sucesso");
     }

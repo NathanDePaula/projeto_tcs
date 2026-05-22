@@ -1,0 +1,109 @@
+### Testes de Segurança e Regras de Negócio
+
+@baseUrl = http://localhost:23900
+
+### 1. Tentar cadastrar usuário com username 'admin' (Deve falhar)
+POST {{baseUrl}}/usuarios
+Content-Type: application/json
+
+{
+  "nome": "Falso Admin",
+  "usuario": "admin",
+  "email": "falso@admin.com",
+  "senha": "password123"
+}
+
+### 2. Login como Admin para obter token
+# @name adminLogin
+POST {{baseUrl}}/usuarios/login
+Content-Type: application/json
+
+{
+  "usuario": "admin",
+  "senha": "admin"
+}
+
+@adminToken = {{adminLogin.response.body.dados.token}}
+@adminId = {{adminLogin.response.body.dados.usuario.id}}
+
+### 3. Criar usuário comum para testes
+# @name userLogin
+POST {{baseUrl}}/usuarios
+Content-Type: application/json
+
+{
+  "nome": "Usuário Comum",
+  "usuario": "comum",
+  "email": "comum@teste.com",
+  "senha": "password123"
+}
+
+### 4. Login como Usuário Comum
+# @name comumLogin
+POST {{baseUrl}}/usuarios/login
+Content-Type: application/json
+
+{
+  "usuario": "comum",
+  "senha": "password123"
+}
+
+@comumToken = {{comumLogin.response.body.dados.token}}
+@comumId = {{comumLogin.response.body.dados.usuario.id}}
+
+### 5. Usuário comum tenta listar todos os usuários (Deve falhar - 403)
+GET {{baseUrl}}/usuarios
+Authorization: Bearer {{comumToken}}
+
+### 6. Admin lista todos os usuários (Deve funcionar)
+GET {{baseUrl}}/usuarios
+Authorization: Bearer {{adminToken}}
+
+### 7. Usuário comum tenta editar outro usuário (Deve falhar - 403)
+PATCH {{baseUrl}}/usuarios/{{adminId}}
+Authorization: Bearer {{comumToken}}
+Content-Type: application/json
+
+{
+  "nome": "Hackeado"
+}
+
+### 8. Admin edita usuário comum (Deve funcionar)
+PATCH {{baseUrl}}/usuarios/{{comumId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "biografia": "Editado pelo admin"
+}
+
+### 9. Admin tenta mudar o próprio username (Deve falhar - 403)
+PATCH {{baseUrl}}/usuarios/{{adminId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "usuario": "novo_admin"
+}
+
+### 10. Usuário comum tenta mudar seu username para 'admin' (Deve falhar - 403)
+PATCH {{baseUrl}}/usuarios/{{comumId}}
+Authorization: Bearer {{comumToken}}
+Content-Type: application/json
+
+{
+  "usuario": "admin"
+}
+
+### 11. Usuário comum altera seu próprio username (Deve funcionar e invalidar token)
+PATCH {{baseUrl}}/usuarios/{{comumId}}
+Authorization: Bearer {{comumToken}}
+Content-Type: application/json
+
+{
+  "usuario": "comum_novo"
+}
+
+### 12. Tentar usar o token antigo do usuário comum (Deve falhar - 401 token_invalido)
+GET {{baseUrl}}/usuarios/{{comumId}}
+Authorization: Bearer {{comumToken}}

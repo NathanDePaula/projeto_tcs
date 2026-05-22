@@ -57,17 +57,19 @@ public class UsuarioController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> obterUsuarioPorId(@PathVariable String id) {
+    public ResponseEntity<?> obterUsuarioPorId(@PathVariable Long id) {
         return ResponseEntity.status(HttpStatus.OK).body(usuarioService.obterUsuarioPorId(id));
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<?> atualizarUsuario(@PathVariable String id, @Valid @RequestBody AtualizacaoDTO request) {
-        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.atualizarUsuario(id, request));
+    public ResponseEntity<?> atualizarUsuario(@PathVariable Long id, @Valid @RequestBody AtualizacaoDTO request, HttpServletRequest servletRequest) {
+        var authHeader = servletRequest.getHeader("Authorization");
+        var token = (authHeader != null) ? authHeader.replace("Bearer ", "") : null;
+        return ResponseEntity.status(HttpStatus.OK).body(usuarioService.atualizarUsuario(id, request, token));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deletarUsuario(@PathVariable String id) {
+    public ResponseEntity<?> deletarUsuario(@PathVariable Long id) {
         return ResponseEntity.status(HttpStatus.OK).body(usuarioService.deletarUsuario(id));
     }
 }

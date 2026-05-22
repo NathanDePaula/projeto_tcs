@@ -38,7 +38,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Sem sessão
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(HttpMethod.POST, "/usuarios").permitAll() // Permite o endpoint de cadastro
-                .requestMatchers(HttpMethod.POST, "/usuarios/login").permitAll() // Permite o endpoint de login 
+                .requestMatchers(HttpMethod.POST, "/usuarios/login").permitAll() // Permite o endpoint de login
                 .requestMatchers("/error").permitAll() // Permitir mensagens de erros sem precisar de autenticação
                 .anyRequest().authenticated() // Tudo o resto exige autenticação
             )

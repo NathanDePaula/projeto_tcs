@@ -18,6 +18,7 @@ import com.projetotcs.instagram.exception.UsuarioJaExisteException;
 import com.projetotcs.instagram.exception.CredenciaisInvalidasException;
 import com.projetotcs.instagram.exception.NenhumUsuarioEncontradoException;
 import com.projetotcs.instagram.exception.UsuarioNaoEncontradoException;
+import com.projetotcs.instagram.exception.TokenAusenteException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -80,6 +81,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErroResponse> handleJWTVerificationException(JWTVerificationException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new ErroResponse("token_invalido", "Token inválido ou expirado"));
+    }
+
+    @ExceptionHandler(TokenAusenteException.class)
+    public ResponseEntity<ErroResponse> handleTokenAusenteException(TokenAusenteException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErroResponse("token_ausente", ex.getMessage()));
     }
 
     @ExceptionHandler(AuthenticationException.class)
