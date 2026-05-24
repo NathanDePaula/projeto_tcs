@@ -414,12 +414,47 @@ async function deleteAccount() {
 let apiSpec = null;
 
 async function initRequestBuilder() {
+    const pathsToTry = [
+        '../instagram-api.json',
+        'instagram-api.json',
+        './instagram-api.json',
+        '/instagram-api.json',
+        '/instagram_client/instagram-api.json'
+    ];
+
+    let success = false;
+    let lastError = null;
+
+    for (const path of pathsToTry) {
+        try {
+            const response = await fetch(path);
+            if (response.ok) {
+                apiSpec = await response.json();
+                console.log(`Especificação da API carregada com sucesso do caminho: ${path}`);
+                success = true;
+                break;
+            } else {
+                throw new Error(`Status HTTP ${response.status}`);
+            }
+        } catch (err) {
+            lastError = err;
+        }
+    }
+
+    if (!success) {
+        console.error("Erro ao carregar instagram-api.json de todos os caminhos possíveis:", lastError);
+        showToast("Erro ao carregar os modelos da API. Use um servidor local (HTTP) para evitar bloqueios do navegador.", "error");
+        return;
+    }
+
     try {
-        const response = await fetch('../instagram-api.json');
-        apiSpec = await response.json();
         const select = document.getElementById('request-template-select');
-        
         if (!select) return;
+
+        // Limpa opções antigas exceto a primeira ("Selecione um endpoint...")
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
 
         Object.keys(apiSpec.paths).forEach(path => {
             const methods = apiSpec.paths[path];
@@ -454,7 +489,7 @@ async function initRequestBuilder() {
 
             // Auto-preencher Corpo (se houver exemplo)
             const opData = apiSpec.paths[path][method.toLowerCase()];
-            if (opData.requestBody && opData.requestBody.content['application/json']) {
+            if (opData && opData.requestBody && opData.requestBody.content['application/json']) {
                 const example = opData.requestBody.content['application/json'].example;
                 document.getElementById('builder-body').value = JSON.stringify(example, null, 2);
             } else {
@@ -503,9 +538,8 @@ async function initRequestBuilder() {
                 showToast('Erro na requisição customizada', 'error');
             }
         };
-
     } catch (err) {
-        console.error("Erro ao carregar instagram-api.json:", err);
+        console.error("Erro ao inicializar o Request Builder:", err);
     }
 }
 
