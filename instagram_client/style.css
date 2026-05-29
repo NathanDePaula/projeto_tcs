@@ -345,3 +345,13 @@ button.danger {
 .debug-entry.res { color: #ccff00; }
 .debug-entry.err { color: #ff5555; }
 .debug-entry.info { color: #ffffff; }
+
+/* Inline Admin Edit row styles */
+.admin-edit-content-wrapper {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.3s ease-in-out;
+}

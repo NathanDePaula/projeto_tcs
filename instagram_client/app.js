@@ -8,7 +8,8 @@ const state = {
     apiUrl: localStorage.getItem('api_url') || DEFAULT_API_URL,
     currentPage: 'login',
     refreshTimer: null,
-    credentials: null 
+    credentials: JSON.parse(localStorage.getItem('credentials')) || null,
+    adminEditingUser: null
 };
 
 // --- Utilitários ---
@@ -59,11 +60,19 @@ async function request(endpoint, options = {}) {
     const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const url = `${baseUrl}${path}`;
     
-    const defaultHeaders = {
-        'Content-Type': 'application/json',
-    };
+    const method = (options.method || 'GET').toUpperCase();
+    const isPublic = (path === '/usuarios/login' && method === 'POST') ||
+                     (path === '/usuarios' && method === 'POST');
 
-    if (state.token) {
+    const defaultHeaders = {};
+
+    // Only send Content-Type if request has a body
+    if (options.body) {
+        defaultHeaders['Content-Type'] = 'application/json';
+    }
+
+    // Only send Authorization if not public and token is present
+    if (!isPublic && state.token) {
         defaultHeaders['Authorization'] = `Bearer ${state.token}`;
     }
 
@@ -73,13 +82,13 @@ async function request(endpoint, options = {}) {
 
     const requestLog = {
         url: url,
-        method: options.method || 'GET',
+        method: method,
         headers: fetchOptions.headers,
         body: fetchOptions.body ? JSON.parse(fetchOptions.body) : null
     };
 
     console.log("REQUISIÇÃO ENVIADA:", requestLog);
-    logDebug('req', `FETCH ${options.method || 'GET'} ${endpoint}`, requestLog.body || {});
+    logDebug('req', `FETCH ${method} ${endpoint}`, requestLog.body || {});
 
     try {
         const response = await fetch(url, fetchOptions);
@@ -94,15 +103,25 @@ async function request(endpoint, options = {}) {
         logDebug(response.ok ? 'res' : 'err', `RESPONSE ${endpoint}`, data);
 
         if (!response.ok) {
+            // Automatically reset session on 401 Unauthorized or expired token on private routes
+            if (response.status === 401 && !isPublic && path !== '/usuarios/logout') {
+                logout();
+            }
             throw data;
         }
 
         return data;
     } catch (error) {
         console.error("ERRO NA REQUISIÇÃO:", error);
-        if (error.codigo === "TOKEN_EXPIRADO" || error.status === 403) {
-            console.log("Sessão expirada, tentando renovação automática...");
+        
+        const isTokenExpired = error.codigo === "TOKEN_EXPIRADO" || error.status === 403 || error.status === 401;
+        if (isTokenExpired) {
+            console.log("Sessão expirada. Efetuando limpeza de sessão...");
+            if (!isPublic && path !== '/usuarios/logout') {
+                logout();
+            }
         }
+        
         showToast(error.mensagem || 'Erro na comunicação com o servidor', 'error');
         throw error;
     }
@@ -118,6 +137,7 @@ async function login(usuario, senha, isAutoRefresh = false) {
         });
         
         state.credentials = { usuario, senha };
+        localStorage.setItem('credentials', JSON.stringify(state.credentials));
         state.token = res.dados.token; // Definir o token imediatamente para a próxima requisição funcionar
         
         if (!isAutoRefresh) {
@@ -189,15 +209,28 @@ function logout() {
     state.credentials = null;
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('credentials');
     if (state.refreshTimer) clearTimeout(state.refreshTimer);
     
     renderPage('login');
 }
 
+// --- Auxiliares ---
+function parseApiUrl(url) {
+    if (!url) return { ip: '127.0.0.1', port: '8080' };
+    let cleaned = url.replace(/^https?:\/\//i, '');
+    let parts = cleaned.split(':');
+    let ip = parts[0] || '127.0.0.1';
+    let port = parts[1] || '23900';
+    return { ip, port };
+}
+
 // --- Renderização de Páginas ---
 
 const pages = {
-    login: () => `
+    login: () => {
+        const { ip, port } = parseApiUrl(state.apiUrl);
+        return `
         <div class="main-container">
             <h1 class="logo">Instagram</h1>
             <form id="login-form">
@@ -212,15 +245,22 @@ const pages = {
             <div class="api-config">
                 <button class="link-btn" id="btn-toggle-api">⚙ Configurar Servidor</button>
                 <div id="api-settings" style="display: none; margin-top: 10px;">
-                    <div class="form-group">
-                        <label style="font-size: 12px;">Endpoint da API:</label>
-                        <input type="text" id="api-url-input" value="${state.apiUrl}" placeholder="http://localhost:8080">
-                        <button class="secondary small" onclick="saveApiConfig()" style="margin-top: 5px;">Salvar e Recarregar</button>
+                    <div style="display: flex; gap: 8px; align-items: flex-end;">
+                        <div class="form-group" style="flex: 2; margin-bottom: 0;">
+                            <label style="font-size: 11px; margin-bottom: 2px;">IP do Servidor:</label>
+                            <input type="text" id="api-ip-input" value="${ip}" placeholder="127.0.0.1">
+                        </div>
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <label style="font-size: 11px; margin-bottom: 2px;">Porta:</label>
+                            <input type="text" id="api-port-input" value="${port}" placeholder="8080">
+                        </div>
                     </div>
+                    <button class="secondary small" onclick="saveApiConfig()" style="margin-top: 10px; width: 100%;">Salvar e Recarregar</button>
                 </div>
             </div>
         </div>
-    `,
+    `;
+    },
     register: () => `
         <div class="main-container">
             <h1 class="logo">Instagram</h1>
@@ -248,12 +288,55 @@ const pages = {
                 </div>
                 <div style="margin-top: 30px;">
                     <button onclick="renderPage('edit')">Editar Perfil</button>
-                    <button class="secondary" onclick="logout()">Sair</button>
+                    <button onclick="renderPage('admin')" style="margin-top: 10px;">Painel de Usuários (Teste Admin)</button>
+                    <button class="secondary" onclick="logout()" style="margin-top: 10px;">Sair</button>
                     <button class="danger" onclick="deleteAccount()" style="margin-top: 20px;">Excluir Conta</button>
                 </div>
                 <div style="margin-top: 20px; font-size: 10px; color: var(--insta-gray);">
                     Conectado a: ${state.apiUrl || 'Servidor Local'}
                 </div>
+            </div>
+        </div>
+    `,
+    admin: () => `
+        <div class="main-container" style="max-width: 800px; width: 100%;">
+            <h1 class="logo">Painel de Usuários</h1>
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 20px; justify-content: center; align-items: center; flex-wrap: wrap;">
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <input type="text" id="manual-edit-id-input" placeholder="ID Usuário" style="width: 100px; padding: 6px; margin: 0;">
+                    <button class="secondary small" onclick="triggerManualEdit()" style="margin: 0; padding: 6px 12px; font-size: 0.8rem; width: auto;">Editar por ID</button>
+                </div>
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <input type="text" id="manual-delete-id-input" placeholder="ID Usuário" style="width: 100px; padding: 6px; margin: 0;">
+                    <button class="danger small" onclick="triggerManualDelete()" style="margin: 0; padding: 6px 12px; font-size: 0.8rem; width: auto; background-color: var(--insta-red);">Excluir por ID</button>
+                </div>
+            </div>
+
+            <div id="admin-users-list">
+                <p>Carregando usuários...</p>
+            </div>
+            
+            <div id="admin-edit-container" style="display: none; margin-top: 30px; border-top: 1px solid var(--insta-border); padding-top: 20px; text-align: left;">
+                <h3 style="margin-bottom: 15px;">Editar Usuário (<span id="admin-edit-username-title"></span>)</h3>
+                <form id="admin-user-edit-form">
+                    <input type="hidden" id="admin-edit-id">
+                    <div class="form-group"><label>Nome</label><input type="text" id="admin-edit-nome"></div>
+                    <div class="form-group"><label>Usuário</label><input type="text" id="admin-edit-user"></div>
+                    <div class="form-group"><label>E-mail</label><input type="email" id="admin-edit-email"></div>
+                    <div class="form-group"><label>Biografia</label><textarea id="admin-edit-bio" rows="2"></textarea></div>
+                    <div class="form-group"><label>URL da Foto</label><input type="text" id="admin-edit-foto"></div>
+                    <div class="form-group"><label>Senha (opcional)</label><input type="password" id="admin-edit-pass" placeholder="Manter atual"></div>
+                    
+                    <div style="display: flex; gap: 8px;">
+                        <button type="submit" style="margin-top: 10px; flex: 1;">Salvar Alterações</button>
+                        <button type="button" class="secondary" id="btn-cancel-admin-edit" style="margin-top: 10px; flex: 1;">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <button class="secondary" onclick="renderPage('profile')">Voltar ao Perfil</button>
             </div>
         </div>
     `,
@@ -275,7 +358,7 @@ const pages = {
 };
 
 function renderPage(pageName) {
-    if ((pageName === 'profile' || pageName === 'edit') && !state.token) {
+    if ((pageName === 'profile' || pageName === 'edit' || pageName === 'admin') && !state.token) {
         pageName = 'login';
     }
     if ((pageName === 'login' || pageName === 'register') && state.token) {
@@ -298,9 +381,21 @@ function renderPage(pageName) {
 // --- Eventos ---
 
 function saveApiConfig() {
-    const input = document.getElementById('api-url-input');
-    if (input) {
-        const newUrl = input.value.trim();
+    const ipInput = document.getElementById('api-ip-input');
+    const portInput = document.getElementById('api-port-input');
+    if (ipInput && portInput) {
+        let ip = ipInput.value.trim();
+        let port = portInput.value.trim();
+        
+        if (ip.endsWith('.')) {
+            ip = ip.slice(0, -1);
+        }
+        
+        if (!ip) ip = '127.0.0.1';
+        if (!port) port = '8080';
+        
+        const newUrl = `http://${ip}:${port}`;
+        
         localStorage.setItem('api_url', newUrl);
         state.apiUrl = newUrl;
         showToast("Configuração salva! Recarregando...", "success");
@@ -325,6 +420,33 @@ function attachEvents(pageName) {
                 const isHidden = apiSettings.style.display === 'none';
                 apiSettings.style.display = isHidden ? 'block' : 'none';
             };
+        }
+
+        const ipInput = document.getElementById('api-ip-input');
+        const portInput = document.getElementById('api-port-input');
+
+        if (ipInput) {
+            ipInput.addEventListener('input', (e) => {
+                let val = e.target.value.replace(/[^0-9.]/g, '');
+                
+                // limit dots to 3
+                const parts = val.split('.');
+                if (parts.length > 4) {
+                    val = parts.slice(0, 4).join('.');
+                }
+                
+                // limit each part to 3 digits
+                const cleanedParts = val.split('.').map(part => part.slice(0, 3));
+                val = cleanedParts.join('.');
+                
+                e.target.value = val;
+            });
+        }
+
+        if (portInput) {
+            portInput.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
+            });
         }
     } else if (pageName === 'register') {
         const form = document.getElementById('register-form');
@@ -381,9 +503,16 @@ function attachEvents(pageName) {
                     body: JSON.stringify(body)
                 });
                 
+                if (!state.credentials && state.user) {
+                    state.credentials = { usuario: state.user.usuario, senha: '' };
+                }
+
                 const usernameChanged = body.usuario && body.usuario !== state.credentials?.usuario;
-                if (body.usuario && state.credentials) state.credentials.usuario = body.usuario;
-                if (body.senha && state.credentials) state.credentials.senha = body.senha;
+                if (state.credentials) {
+                    if (body.usuario) state.credentials.usuario = body.usuario;
+                    if (body.senha) state.credentials.senha = body.senha;
+                    localStorage.setItem('credentials', JSON.stringify(state.credentials));
+                }
 
                 state.user = res.dados;
                 localStorage.setItem('user', JSON.stringify(state.user));
@@ -396,6 +525,89 @@ function attachEvents(pageName) {
                 renderPage('profile');
             } catch (err) {}
         };
+    } else if (pageName === 'admin') {
+        loadAdminUsers();
+
+        const editForm = document.getElementById('admin-user-edit-form');
+        if (editForm) {
+            editForm.onsubmit = async (e) => {
+                e.preventDefault();
+                const userId = document.getElementById('admin-edit-id').value;
+                
+                const body = {};
+                const fields = {
+                    nome: document.getElementById('admin-edit-nome').value.trim(),
+                    usuario: document.getElementById('admin-edit-user').value.trim(),
+                    email: document.getElementById('admin-edit-email').value.trim(),
+                    biografia: document.getElementById('admin-edit-bio').value.trim(),
+                    foto: document.getElementById('admin-edit-foto').value.trim()
+                };
+
+                // Same comparison logic as profile edit screen
+                Object.keys(fields).forEach(key => {
+                    const value = fields[key];
+                    const originalValue = (state.adminEditingUser && state.adminEditingUser[key]) || '';
+                    if (value && value !== originalValue) {
+                        body[key] = value;
+                    }
+                });
+
+                const senha = document.getElementById('admin-edit-pass').value;
+                if (senha) body.senha = senha;
+
+                if (Object.keys(body).length === 0) {
+                    showToast('Nenhuma alteração detectada', 'info');
+                    return;
+                }
+
+                try {
+                    await request(`/usuarios/${userId}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify(body)
+                    });
+                    
+                    showToast('Usuário atualizado com sucesso!', 'success');
+                    
+                    if (userId === String(state.user?.id || '')) {
+                        const updatedProfile = await request(`/usuarios/${userId}`);
+                        state.user = updatedProfile.dados;
+                        localStorage.setItem('user', JSON.stringify(state.user));
+                        
+                        if (state.credentials) {
+                            if (body.usuario) state.credentials.usuario = body.usuario;
+                            if (senha) state.credentials.senha = senha;
+                            localStorage.setItem('credentials', JSON.stringify(state.credentials));
+                        }
+                    }
+
+                    document.getElementById('admin-edit-container').style.display = 'none';
+                    loadAdminUsers();
+                } catch (err) {
+                    console.error("Erro ao atualizar usuário:", err);
+                }
+            };
+        }
+
+        const btnCancelEdit = document.getElementById('btn-cancel-admin-edit');
+        if (btnCancelEdit) {
+            btnCancelEdit.onclick = () => {
+                document.getElementById('admin-edit-container').style.display = 'none';
+            };
+        }
+
+        // Live input filters for digit-only IDs
+        const manualEditId = document.getElementById('manual-edit-id-input');
+        const manualDeleteId = document.getElementById('manual-delete-id-input');
+        if (manualEditId) {
+            manualEditId.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '');
+            });
+        }
+        if (manualDeleteId) {
+            manualDeleteId.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '');
+            });
+        }
     }
 }
 
@@ -542,6 +754,333 @@ async function initRequestBuilder() {
         console.error("Erro ao inicializar o Request Builder:", err);
     }
 }
+
+// --- Funções Administrativas ---
+
+async function loadAdminUsers() {
+    const listContainer = document.getElementById('admin-users-list');
+    if (!listContainer) return;
+
+    try {
+        const res = await request('/usuarios');
+        const users = (res.dados && res.dados.usuarios) || [];
+
+        if (users.length === 0) {
+            listContainer.innerHTML = `<p style="color: var(--insta-gray); text-align: center; margin-top: 15px;">Nenhum usuário cadastrado.</p>`;
+            return;
+        }
+
+        let html = `
+            <div style="overflow-x: auto; margin-top: 20px;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--insta-border); color: var(--insta-gray); font-weight: bold;">
+                            <th style="padding: 10px 5px;">ID</th>
+                            <th style="padding: 10px 5px;">Foto</th>
+                            <th style="padding: 10px 5px;">Usuário</th>
+                            <th style="padding: 10px 5px;">Nome</th>
+                            <th style="padding: 10px 5px;">E-mail</th>
+                            <th style="padding: 10px 5px; text-align: center;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        users.forEach(u => {
+            const userPic = u.foto || 'https://via.placeholder.com/150';
+            html += `
+                <tr style="border-bottom: 1px solid var(--insta-border); transition: background 0.2s;" class="admin-user-row">
+                    <td style="padding: 10px 5px; font-weight: bold; color: var(--insta-gray);">${u.id}</td>
+                    <td style="padding: 10px 5px;">
+                        <img src="${userPic}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--insta-border);">
+                    </td>
+                    <td style="padding: 10px 5px; font-weight: bold; color: var(--insta-black);">${u.usuario}</td>
+                    <td style="padding: 10px 5px;">${u.nome}</td>
+                    <td style="padding: 10px 5px; color: var(--insta-gray);">${u.email}</td>
+                    <td style="padding: 10px 5px; text-align: center; white-space: nowrap;">
+                        <button class="secondary small" onclick="openAdminEdit('${u.id}')" style="margin: 0 4px; padding: 6px 10px; font-size: 0.75rem; width: auto; display: inline-block;" title="Editar"><span id="edit-arrow-icon-${u.id}" style="font-size: 0.8rem; vertical-align: middle;">▼</span></button>
+                        <button class="danger small" onclick="deleteUserByAdmin('${u.id}')" style="margin: 0 4px; padding: 6px 10px; font-size: 0.75rem; width: auto; display: inline-block; background-color: var(--insta-red);" title="Excluir"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: white; vertical-align: middle;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
+                    </td>
+                </tr>
+                <tr id="edit-row-${u.id}" class="admin-edit-row-container" style="display: none; background-color: #fafafa;">
+                    <td colspan="6" style="padding: 0;">
+                        <div id="edit-content-${u.id}" class="admin-edit-content-wrapper"></div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        listContainer.innerHTML = html;
+    } catch (err) {
+        listContainer.innerHTML = `<p style="color: var(--insta-red); text-align: center; margin-top: 15px;">Erro ao carregar usuários do servidor.</p>`;
+    }
+}
+
+const closeTimeouts = {};
+
+window.openAdminEdit = async (id) => {
+    try {
+        const res = await request(`/usuarios/${id}`);
+        const user = res.dados;
+        if (!user) {
+            showToast("Usuário não encontrado", "error");
+            return;
+        }
+
+        state.adminEditingUser = user;
+
+        const inlineContainer = document.getElementById(`edit-content-${id}`);
+        const inlineRow = document.getElementById(`edit-row-${id}`);
+        const arrowIcon = document.getElementById(`edit-arrow-icon-${id}`);
+
+        const formHtml = `
+            <form id="admin-user-edit-form-${user.id}" style="padding: 15px; background: var(--insta-bg); border: 1px solid var(--insta-border); border-radius: 4px; text-align: left; display: flex; flex-direction: column; gap: 8px; margin: 10px 0;">
+                <h4 style="margin-bottom: 8px;">Editar Usuário (${user.usuario})</h4>
+                <div class="form-group"><label style="font-size: 11px;">Nome</label><input type="text" id="admin-edit-nome-${user.id}" placeholder="${user.nome || ''}"></div>
+                <div class="form-group"><label style="font-size: 11px;">Usuário</label><input type="text" id="admin-edit-user-${user.id}" placeholder="${user.usuario || ''}"></div>
+                <div class="form-group"><label style="font-size: 11px;">E-mail</label><input type="email" id="admin-edit-email-${user.id}" placeholder="${user.email || ''}"></div>
+                <div class="form-group"><label style="font-size: 11px;">Biografia</label><textarea id="admin-edit-bio-${user.id}" rows="2" placeholder="${user.biografia || 'Sem biografia.'}"></textarea></div>
+                <div class="form-group"><label style="font-size: 11px;">URL da Foto</label><input type="text" id="admin-edit-foto-${user.id}" placeholder="${user.foto || ''}"></div>
+                <div class="form-group"><label style="font-size: 11px;">Senha (opcional)</label><input type="password" id="admin-edit-pass-${user.id}" placeholder="Manter atual"></div>
+                
+                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                    <button type="submit" style="margin: 0; padding: 8px; flex: 1;">Salvar</button>
+                    <button type="button" class="secondary" onclick="closeAdminInlineEdit('${user.id}')" style="margin: 0; padding: 8px; flex: 1;">Cancelar</button>
+                </div>
+            </form>
+        `;
+
+        if (inlineContainer && inlineRow) {
+            // Check if already open
+            if (inlineContainer.classList.contains('open')) {
+                // Collapse and exit
+                closeAdminInlineEdit(id);
+                return;
+            }
+
+            // Clear any pending close timeout for this ID to allow clean reuse
+            if (closeTimeouts[id]) {
+                clearTimeout(closeTimeouts[id]);
+                delete closeTimeouts[id];
+            }
+
+            // Close any other open edit row first for smooth UX
+            document.querySelectorAll('.admin-edit-content-wrapper.open').forEach(content => {
+                const otherId = content.id.replace('edit-content-', '');
+                if (otherId !== id) {
+                    closeAdminInlineEdit(otherId);
+                }
+            });
+
+            // Reset all other arrow icons to down arrow
+            document.querySelectorAll('[id^="edit-arrow-icon-"]').forEach(span => {
+                span.innerText = '▼';
+            });
+
+            inlineContainer.innerHTML = formHtml;
+            inlineRow.style.display = 'table-row';
+            
+            // Set initial state for dynamic smooth animation
+            inlineContainer.style.maxHeight = '0px';
+            inlineContainer.style.padding = '0 15px';
+            inlineContainer.style.opacity = '0';
+            
+            // Force reflow
+            inlineContainer.offsetHeight;
+            
+            const targetHeight = inlineContainer.scrollHeight;
+            
+            // Trigger transition animation
+            setTimeout(() => {
+                inlineContainer.style.maxHeight = targetHeight + 'px';
+                inlineContainer.style.padding = '15px';
+                inlineContainer.style.opacity = '1';
+                inlineContainer.classList.add('open');
+                if (arrowIcon) arrowIcon.innerText = '▲'; // Set to up arrow
+                inlineRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 30);
+            
+            bindAdminEditSubmit(user.id);
+        } else {
+            // Fallback to static panel at bottom (e.g. when list users request didn't work)
+            const staticContainer = document.getElementById('admin-edit-container');
+            if (staticContainer) {
+                document.getElementById('admin-edit-username-title').innerText = user.usuario;
+                document.getElementById('admin-edit-id').value = user.id;
+                
+                document.getElementById('admin-edit-nome').value = '';
+                document.getElementById('admin-edit-user').value = '';
+                document.getElementById('admin-edit-email').value = '';
+                document.getElementById('admin-edit-bio').value = '';
+                document.getElementById('admin-edit-foto').value = '';
+                document.getElementById('admin-edit-pass').value = '';
+
+                document.getElementById('admin-edit-nome').placeholder = user.nome || '';
+                document.getElementById('admin-edit-user').placeholder = user.usuario || '';
+                document.getElementById('admin-edit-email').placeholder = user.email || '';
+                document.getElementById('admin-edit-bio').placeholder = user.biografia || 'Sem biografia.';
+                document.getElementById('admin-edit-foto').placeholder = user.foto || '';
+
+                staticContainer.style.display = 'block';
+                staticContainer.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    } catch (err) {
+        console.error("Erro ao carregar dados do usuário para edição:", err);
+    }
+};
+
+window.closeAdminInlineEdit = (id) => {
+    const inlineContainer = document.getElementById(`edit-content-${id}`);
+    const inlineRow = document.getElementById(`edit-row-${id}`);
+    const arrowIcon = document.getElementById(`edit-arrow-icon-${id}`);
+    
+    if (inlineContainer && inlineRow) {
+        // Set dynamic current height before retracting to avoid jumpiness
+        inlineContainer.style.maxHeight = inlineContainer.scrollHeight + 'px';
+        inlineContainer.offsetHeight; // reflow
+        
+        inlineContainer.style.maxHeight = '0px';
+        inlineContainer.style.padding = '0 15px';
+        inlineContainer.style.opacity = '0';
+        inlineContainer.classList.remove('open');
+        
+        if (arrowIcon) arrowIcon.innerText = '▼'; // Set back to down arrow
+        
+        if (closeTimeouts[id]) {
+            clearTimeout(closeTimeouts[id]);
+        }
+        
+        closeTimeouts[id] = setTimeout(() => {
+            inlineRow.style.display = 'none';
+            inlineContainer.innerHTML = '';
+            delete closeTimeouts[id];
+        }, 400); // match transition duration
+    } else {
+        const staticContainer = document.getElementById('admin-edit-container');
+        if (staticContainer) {
+            staticContainer.style.display = 'none';
+        }
+    }
+};
+
+function bindAdminEditSubmit(userId) {
+    const form = document.getElementById(`admin-user-edit-form-${userId}`);
+    if (form) {
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const body = {};
+            const fields = {
+                nome: document.getElementById(`admin-edit-nome-${userId}`).value.trim(),
+                usuario: document.getElementById(`admin-edit-user-${userId}`).value.trim(),
+                email: document.getElementById(`admin-edit-email-${userId}`).value.trim(),
+                biografia: document.getElementById(`admin-edit-bio-${userId}`).value.trim(),
+                foto: document.getElementById(`admin-edit-foto-${userId}`).value.trim()
+            };
+
+            Object.keys(fields).forEach(key => {
+                const value = fields[key];
+                const originalValue = (state.adminEditingUser && state.adminEditingUser[key]) || '';
+                if (value && value !== originalValue) {
+                    body[key] = value;
+                }
+            });
+
+            const senha = document.getElementById(`admin-edit-pass-${userId}`).value;
+            if (senha) body.senha = senha;
+
+            if (Object.keys(body).length === 0) {
+                showToast('Nenhuma alteração detectada', 'info');
+                return;
+            }
+
+            try {
+                await request(`/usuarios/${userId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify(body)
+                });
+                
+                showToast('Usuário atualizado com sucesso!', 'success');
+                
+                if (userId === String(state.user?.id || '')) {
+                    const updatedProfile = await request(`/usuarios/${userId}`);
+                    state.user = updatedProfile.dados;
+                    localStorage.setItem('user', JSON.stringify(state.user));
+                    
+                    if (state.credentials) {
+                        if (body.usuario) state.credentials.usuario = body.usuario;
+                        if (senha) state.credentials.senha = senha;
+                        localStorage.setItem('credentials', JSON.stringify(state.credentials));
+                    }
+                }
+
+                closeAdminInlineEdit(userId);
+                loadAdminUsers();
+            } catch (err) {
+                console.error("Erro ao atualizar usuário:", err);
+            }
+        };
+    }
+}
+
+window.deleteUserByAdmin = async (id, usuario) => {
+    try {
+        let finalUsuario = usuario;
+        if (!finalUsuario) {
+            const res = await request(`/usuarios/${id}`);
+            finalUsuario = res.dados?.usuario || res.dados?.nome || `ID: ${id}`;
+        }
+
+        if (confirm(`Tem certeza de que deseja remover permanentemente o usuário "${finalUsuario}"?`)) {
+            await request(`/usuarios/${id}`, {
+                method: 'DELETE'
+            });
+            showToast(`Usuário "${finalUsuario}" removido com sucesso!`, 'success');
+            
+            if (id === String(state.user?.id || '')) {
+                logout();
+                return;
+            }
+
+            loadAdminUsers();
+            
+            closeAdminInlineEdit(id);
+        }
+    } catch (err) {
+        console.error("Erro ao remover usuário:", err);
+    }
+};
+
+window.triggerManualEdit = () => {
+    const input = document.getElementById('manual-edit-id-input');
+    if (input) {
+        const id = input.value.trim();
+        if (!id) {
+            showToast("Digite um ID válido", "error");
+            return;
+        }
+        openAdminEdit(id);
+    }
+};
+
+window.triggerManualDelete = () => {
+    const input = document.getElementById('manual-delete-id-input');
+    if (input) {
+        const id = input.value.trim();
+        if (!id) {
+            showToast("Digite um ID válido", "error");
+            return;
+        }
+        deleteUserByAdmin(id);
+    }
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
     const toggleBtn = document.getElementById('toggle-debug-area');
