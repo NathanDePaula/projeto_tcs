@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:24900",
+      "url": "http://localhost:8082",
       "description": "API - Instagram"
     }
   ],
@@ -19,9 +19,126 @@
     {
       "name": "login",
       "description": "Operações de autenticação (login, logout)"
+    },
+    {
+      "name":"posts",
+      "description": "Operações relacionadas a posts"
     }
   ],
   "paths": {
+    "/usuarios/posts":{
+       "post": {
+        "tags": [
+          "posts"
+        ],
+        "summary": "Criar post",
+        "description": "Cria um novo post para o usuário especificado.",
+        "operationId": "criarPost",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriaçãoPostRequest"
+              },
+              "example": {
+                "imagem": "post1.jpg",
+                "conteudo": "Meu novo post!"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Post criado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sucesso"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados incompletos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token inválido ou expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Usuário não encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usuarios/{id}/posts": {
+      "get": {
+        "tags": [
+          "posts"
+        ],
+        "summary": "Listar posts",
+        "description": "Retorna a lista de posts cadastrados.",
+        "operationId": "listarPosts",
+        "responses": {
+          "200": {
+            "description": "Posts listados com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListagemPostsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token inválido ou expirado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Nenhum post encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/usuarios/login": {
       "post": {
         "tags": [
@@ -447,6 +564,51 @@
   },
   "components": {
     "schemas": {
+      "Sucesso":{
+        "example": {
+          "status": "sucesso",
+          "codigo": "OPERACAO_SUCESSO",
+          "mensagem": "Operação realizada com sucesso"
+        },
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PadraoResposta"
+          }
+        ] 
+      },
+      "CriaçãoPostRequest": {
+        "type": "object",
+        "properties": {
+          "conteudo": {
+            "type": "string",
+            "example": "Meu novo post!"
+          }
+        },
+        "required": [
+          "conteudo"
+        ]
+      },
+      "ListagemPostsResponse": {
+        "example": {
+          "status": "sucesso",
+          "codigo": "LISTAGEM_POSTS_SUCESSO",
+          "mensagem": "Posts listados com sucesso",
+          "dados": {
+            "posts": [
+              {
+                "id": "1",
+                "conteudo": "Meu primeiro post!",
+                "data_criacao": "2024-01-01T12:00:00Z"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PadraoResposta"
+          }
+        ]
+      },
       "LogoutRequest": {
         "type": "object",
         "properties": {
