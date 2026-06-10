@@ -14,11 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.auth0.jwt.exceptions.JWTCreationException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.projetotcs.instagram.dto.ErroResponse;
-import com.projetotcs.instagram.exception.UsuarioJaExisteException;
-import com.projetotcs.instagram.exception.CredenciaisInvalidasException;
-import com.projetotcs.instagram.exception.NenhumUsuarioEncontradoException;
-import com.projetotcs.instagram.exception.UsuarioNaoEncontradoException;
-import com.projetotcs.instagram.exception.TokenAusenteException;
+import com.projetotcs.instagram.exception.*;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -99,6 +95,24 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErroResponse> handleUsuarioNaoEncontrado(UsuarioNaoEncontradoException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErroResponse("usuario_nao_encontrado", ex.getMessage()));
+    }
+
+    @ExceptionHandler(PostNaoEncontradoException.class)
+    public ResponseEntity<ErroResponse> handlePostNaoEncontrado(PostNaoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErroResponse("post_nao_encontrado", ex.getMessage()));
+    }
+
+    @ExceptionHandler(NenhumPostEncontradoException.class)
+    public ResponseEntity<ErroResponse> handleNenhumPostEncontrado(NenhumPostEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErroResponse("nenhum_post_encontrado", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ImagemInvalidaException.class)
+    public ResponseEntity<ErroResponse> handleImagemInvalida(ImagemInvalidaException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErroResponse("dados_invalidos", ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)

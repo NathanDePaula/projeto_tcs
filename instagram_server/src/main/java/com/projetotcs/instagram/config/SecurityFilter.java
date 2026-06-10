@@ -86,6 +86,7 @@ public class SecurityFilter extends OncePerRequestFilter{
         // GET /usuarios removido pois exige admin
         boolean isPublic = (uri.equals("/usuarios/login") && method.equals("POST")) ||
                           (uri.equals("/usuarios") && method.equals("POST")) ||
+                          (uri.equals("/ativos") && method.equals("GET")) ||
                           uri.equals("/error");
 
         if (!isPublic) {

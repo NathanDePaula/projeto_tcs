@@ -1,0 +1,190 @@
+### =========================================================================
+### VALIDATION SUITE: POSTS AND LIKES (REQUISITOS.TXT)
+### =========================================================================
+@baseUrl = http://localhost:23900
+@contentType = application/json
+
+### -------------------------------------------------------------------------
+### Setup: Create a Common User & Login to get both Admin and Common Token
+### -------------------------------------------------------------------------
+
+# @name adminLogin
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "usuario": "admin",
+  "senha": "admin123"
+}
+
+### Capture Admin Token
+@adminToken = {{adminLogin.response.body.dados.token}}
+
+### Register a new common user for testing permissions
+POST {{baseUrl}}/usuarios
+Content-Type: {{contentType}}
+
+{
+  "usuario": "testuser",
+  "email": "testuser@gmail.com",
+  "senha": "password123",
+  "nome": "Test User",
+  "biografia": "A normal testing account"
+}
+
+### @name userLogin
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "usuario": "testuser",
+  "senha": "password123"
+}
+
+### Capture Common User Token
+@userToken = {{userLogin.response.body.dados.token}}
+@userId = {{userLogin.response.body.dados.usuario.id}}
+
+
+### -------------------------------------------------------------------------
+### Requirement: RNF14 - Unauthenticated user cannot like a post
+### -------------------------------------------------------------------------
+# Attempt to like without Authorization header. Expect: 401 Unauthorized.
+POST {{baseUrl}}/usuarios/{{userId}}/posts/1
+Content-Type: {{contentType}}
+
+
+### -------------------------------------------------------------------------
+### Requirement: RNF10 & RNF07 - Encapsulated Base64 Images (Max 10MB, JPG/JPEG/PNG)
+### -------------------------------------------------------------------------
+# Post valid 1x1 transparent PNG in Base64. Expect: 201 Created.
+# @name createPostOk
+POST {{baseUrl}}/usuarios/{{userId}}/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{
+  "imagem": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "legenda": "Legenda valida contendo apenas letras e espacos"
+}
+
+@postId = {{createPostOk.response.body.id}}
+
+
+### -------------------------------------------------------------------------
+### Requirement: RNF06 - Caption (Legenda) constraints (allows numbers, symbols, and accents)
+### -------------------------------------------------------------------------
+
+# Test 1: Caption containing numbers. Expect: 201 Created.
+POST {{baseUrl}}/usuarios/{{userId}}/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{
+  "imagem": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "legenda": "Legenda com numero 12345"
+}
+
+# Test 2: Caption containing accents (acentos). Expect: 201 Created.
+POST {{baseUrl}}/usuarios/{{userId}}/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{
+  "imagem": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "legenda": "Legenda com acentuação, acentos permitidos!"
+}
+
+# Test 3: Caption containing special characters. Expect: 201 Created.
+POST {{baseUrl}}/usuarios/{{userId}}/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{
+  "imagem": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "legenda": "Legenda especial @hashtag #cool!"
+}
+
+# Test 4: Caption length 0 chars (Optional/Nullable). Expect: 201 Created.
+POST {{baseUrl}}/usuarios/{{userId}}/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{
+  "imagem": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "legenda": ""
+}
+
+# Test 5: Caption exceeding 200 characters. Expect: 400 Bad Request.
+POST {{baseUrl}}/usuarios/{{userId}}/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{
+  "imagem": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "legenda": "Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat Duis aute irure dolor in reprehenderit"
+}
+
+
+### -------------------------------------------------------------------------
+### Requirement: RNF07 - Image format checks (JPG, JPEG, PNG only)
+### -------------------------------------------------------------------------
+# Attempt to upload plain text encoded as Base64. Expect: 400 Bad Request.
+POST {{baseUrl}}/usuarios/{{userId}}/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{
+  "imagem": "SGVsbG8gV29ybGQ=",
+  "legenda": "Post formato de imagem invalido"
+}
+
+
+### -------------------------------------------------------------------------
+### Requirement: RNF11 & RNF13 - Display List, image Base64, and Likes Quantity
+### -------------------------------------------------------------------------
+# Get posts list. Expect: 200 OK, returns JSON with Base64 image and likes.
+GET {{baseUrl}}/usuarios/{{userId}}/posts
+Authorization: Bearer {{userToken}}
+
+
+### -------------------------------------------------------------------------
+### Requirement: RNF12 - Like and unlike a post exactly once (Toggle)
+### -------------------------------------------------------------------------
+
+# Test 1: Like the post. Expect: 201 Created (Curtida added).
+POST {{baseUrl}}/usuarios/{{userId}}/posts/1
+Authorization: Bearer {{userToken}}
+
+# Test 2: List posts to verify count equals 1. Expect: 200 OK ("curtidas": "1").
+GET {{baseUrl}}/usuarios/{{userId}}/posts
+Authorization: Bearer {{userToken}}
+
+# Test 3: Unlike the post (Second call toggles removal). Expect: 201 Created.
+POST {{baseUrl}}/usuarios/{{userId}}/posts/1
+Authorization: Bearer {{userToken}}
+
+# Test 4: List posts to verify count equals 0. Expect: 200 OK ("curtidas": "0").
+GET {{baseUrl}}/usuarios/{{userId}}/posts
+Authorization: Bearer {{userToken}}
+
+
+### -------------------------------------------------------------------------
+### Requirement: RNF08 - User can ONLY edit post caption (legenda)
+### -------------------------------------------------------------------------
+# Update caption. Expect: 200 OK.
+PATCH {{baseUrl}}/usuarios/{{userId}}/posts/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{
+  "legenda": "Legenda editada com sucesso, agora com acentuação e 123 @símbolos!"
+}
+
+
+### -------------------------------------------------------------------------
+### Requirement: RNF09 - Delete post completely (Removes record entirely)
+### -------------------------------------------------------------------------
+# Delete post. Expect: 200 OK.
+DELETE {{baseUrl}}/usuarios/{{userId}}/posts/1
+Authorization: Bearer {{userToken}}

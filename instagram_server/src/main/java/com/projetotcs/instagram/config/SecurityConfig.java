@@ -39,6 +39,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(HttpMethod.POST, "/usuarios").permitAll() // Permite o endpoint de cadastro
                 .requestMatchers(HttpMethod.POST, "/usuarios/login").permitAll() // Permite o endpoint de login
+                .requestMatchers(HttpMethod.GET, "/ativos").permitAll() // Permite o painel de usuários ativos
                 .requestMatchers("/error").permitAll() // Permitir mensagens de erros sem precisar de autenticação
                 .anyRequest().authenticated() // Tudo o resto exige autenticação
             )

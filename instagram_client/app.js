@@ -9,7 +9,8 @@ const state = {
     currentPage: 'login',
     refreshTimer: null,
     credentials: JSON.parse(localStorage.getItem('credentials')) || null,
-    adminEditingUser: null
+    adminEditingUser: null,
+    viewingUserId: null
 };
 
 // --- Utilitários ---
@@ -122,7 +123,11 @@ async function request(endpoint, options = {}) {
             }
         }
         
-        showToast(error.mensagem || 'Erro na comunicação com o servidor', 'error');
+        // Suppress expected resource empty messages from popups
+        if (error.codigo !== 'nenhum_post_encontrado' && error.codigo !== 'NENHUM_POST_ENCONTRADO' && 
+            error.codigo !== 'NENHUM_USUARIO_ENCONTRADO' && error.codigo !== 'nenhum_usuario_encontrado') {
+            showToast(error.mensagem || 'Erro na comunicação com o servidor', 'error');
+        }
         throw error;
     }
 }
@@ -145,7 +150,7 @@ async function login(usuario, senha, isAutoRefresh = false) {
             const profileRes = await request(`/usuarios/${res.dados.usuario.id}`);
             await setupSession(res.dados.token, profileRes.dados);
             showToast('Bem-vindo de volta!', 'success');
-            renderPage('profile');
+            renderPage('users');
         } else {
             // Renovação silenciosa de token, sem buscar o perfil novamente
             await setupSession(res.dados.token, state.user);
@@ -207,6 +212,7 @@ function logout() {
     state.token = null;
     state.user = null;
     state.credentials = null;
+    state.likedPosts = {};
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('credentials');
@@ -225,24 +231,40 @@ function parseApiUrl(url) {
     return { ip, port };
 }
 
+function buildImageSrc(base64String) {
+    if (!base64String) return 'https://via.placeholder.com/600';
+    if (base64String.startsWith('data:image/')) {
+        return base64String;
+    }
+    // Determine mime type from magic bytes of base64
+    let mimeType = 'image/jpeg'; // default
+    if (base64String.startsWith('iVBORw')) {
+        mimeType = 'image/png';
+    } else if (base64String.startsWith('R0lGOD')) {
+        mimeType = 'image/gif';
+    }
+    return `data:${mimeType};base64,${base64String}`;
+}
+window.buildImageSrc = buildImageSrc;
+
 // --- Renderização de Páginas ---
 
 const pages = {
     login: () => {
         const { ip, port } = parseApiUrl(state.apiUrl);
         return `
-        <div class="main-container">
-            <h1 class="logo">Instagram</h1>
-            <form id="login-form">
+        <div class="main-container" style="display: flex; flex-direction: column; justify-content: center; align-items: stretch; max-width: 350px;">
+            <h1 class="logo" style="margin-top: 0; margin-bottom: 20px;">Instagram</h1>
+            <form id="login-form" style="width: 100%;">
                 <div class="form-group"><input type="text" name="username" placeholder="Usuário" required></div>
                 <div class="form-group"><input type="password" name="password" placeholder="Senha" required></div>
                 <button type="submit">Entrar</button>
             </form>
-            <div class="switch-page">
+            <div class="switch-page" style="width: 100%; margin-top: 15px;">
                 Não tem uma conta? <a onclick="renderPage('register')">Cadastre-se</a>
             </div>
             
-            <div class="api-config">
+            <div class="api-config" style="width: 100%; margin-top: 20px;">
                 <button class="link-btn" id="btn-toggle-api">⚙ Configurar Servidor</button>
                 <div id="api-settings" style="display: none; margin-top: 10px;">
                     <div style="display: flex; gap: 8px; align-items: flex-end;">
@@ -262,17 +284,17 @@ const pages = {
     `;
     },
     register: () => `
-        <div class="main-container">
-            <h1 class="logo">Instagram</h1>
-            <p style="color: var(--insta-gray); margin-bottom: 20px;">Cadastre-se para ver fotos e vídeos dos seus amigos.</p>
-            <form id="register-form">
+        <div class="main-container" style="display: flex; flex-direction: column; justify-content: center; align-items: stretch; max-width: 350px;">
+            <h1 class="logo" style="margin-top: 0; margin-bottom: 10px;">Instagram</h1>
+            <p style="color: var(--insta-gray); margin-bottom: 20px; font-size: 0.85rem;">Cadastre-se para ver fotos e vídeos dos seus amigos.</p>
+            <form id="register-form" style="width: 100%;">
                 <div class="form-group"><input type="text" name="reg-nome" placeholder="Nome Completo" required></div>
                 <div class="form-group"><input type="email" name="reg-email" placeholder="E-mail" required></div>
                 <div class="form-group"><input type="text" name="reg-user" placeholder="Nome de usuário" required></div>
                 <div class="form-group"><input type="password" name="reg-pass" placeholder="Senha" required></div>
                 <button type="submit">Cadastrar</button>
             </form>
-            <div class="switch-page">
+            <div class="switch-page" style="width: 100%; margin-top: 15px;">
                 Tem uma conta? <a onclick="renderPage('login')">Conecte-se</a>
             </div>
         </div>
@@ -286,7 +308,14 @@ const pages = {
                     <h2 class="profile-username" id="disp-user">${(state.user && (state.user.usuario || state.user.nome)) || ''}</h2>
                     <p class="profile-bio" id="disp-bio">${(state.user && state.user.biografia) || 'Sem biografia.'}</p>
                 </div>
+                
+                <!-- Own Posts Grid -->
+                <div id="my-profile-posts" class="public-profile-posts-grid" style="margin-top: 25px; border-top: 1px solid var(--insta-border); padding-top: 20px;">
+                    <!-- User's own posts loaded here -->
+                </div>
+
                 <div style="margin-top: 30px;">
+                    <button onclick="openCreatePostModal()" style="margin-bottom: 10px; background-color: var(--insta-blue); color: white; border: none; font-weight: bold;">Nova Publicação</button>
                     <button onclick="renderPage('edit')">Editar Perfil</button>
                     <button onclick="renderPage('admin')" style="margin-top: 10px;">Painel de Usuários (Teste Admin)</button>
                     <button class="secondary" onclick="logout()" style="margin-top: 10px;">Sair</button>
@@ -354,15 +383,71 @@ const pages = {
                 <button type="button" class="secondary" onclick="renderPage('profile')">Cancelar</button>
             </form>
         </div>
+    `,
+    users: () => `
+        <div class="main-container" style="max-width: 600px; width: 100%;">
+            <h1 class="logo">Instagram</h1>
+            <h3 style="margin-bottom: 20px;">Explorar Usuários</h3>
+            <div id="explore-users-list" class="users-explore-list">
+                <p style="text-align: center; color: var(--insta-gray);">Carregando usuários...</p>
+            </div>
+        </div>
+    `,
+    userProfile: () => `
+        <div class="main-container" style="max-width: 600px; width: 100%; display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0;">
+            <div style="flex: 1; overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column;">
+                <h1 class="logo">Instagram</h1>
+                <div id="public-profile-header" class="public-profile-header">
+                    <p>Carregando perfil...</p>
+                </div>
+                
+                <div id="public-profile-posts" class="public-profile-posts-grid">
+                    <!-- Posts loaded here -->
+                </div>
+            </div>
+            
+            <div style="padding: 20px 0; display: flex; gap: 10px; width: 100%; border-top: 1px solid var(--insta-border); background: var(--insta-white); z-index: 10;">
+                <button class="secondary" onclick="renderPage('users')" style="flex: 1; margin: 0;">Voltar para Explorar</button>
+            </div>
+        </div>
     `
 };
 
+function getBottomBarHtml(currentPage) {
+    return `
+        <div class="bottom-nav">
+            <div class="bottom-nav-item ${currentPage === 'users' ? 'active' : ''}" onclick="renderPage('users')">
+                <svg class="bottom-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <span>Explorar</span>
+            </div>
+            <div class="bottom-nav-item ${currentPage === 'profile' ? 'active' : ''}" onclick="renderPage('profile')">
+                <svg class="bottom-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span>Meu Perfil</span>
+            </div>
+            <div class="bottom-nav-item" onclick="logout()">
+                <svg class="bottom-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                <span>Sair</span>
+            </div>
+        </div>
+    `;
+}
+
 function renderPage(pageName) {
-    if ((pageName === 'profile' || pageName === 'edit' || pageName === 'admin') && !state.token) {
+    if ((pageName === 'profile' || pageName === 'edit' || pageName === 'admin' || pageName === 'users' || pageName === 'userProfile') && !state.token) {
         pageName = 'login';
     }
     if ((pageName === 'login' || pageName === 'register') && state.token) {
-        pageName = 'profile';
+        pageName = 'users';
     }
 
     const app = document.getElementById('app');
@@ -372,9 +457,20 @@ function renderPage(pageName) {
     state.currentPage = pageName;
     
     setTimeout(() => {
-        if (app) app.innerHTML = pages[pageName]();
+        let html = pages[pageName]();
+        if (state.token) {
+            html += getBottomBarHtml(pageName);
+        }
+        if (app) app.innerHTML = html;
         attachEvents(pageName);
         if (loader) loader.style.display = 'none';
+
+        // Trigger page show transition
+        const container = app.querySelector('.main-container');
+        if (container) {
+            container.offsetHeight; // force reflow
+            container.classList.add('show');
+        }
     }, 300);
 }
 
@@ -608,8 +704,345 @@ function attachEvents(pageName) {
                 e.target.value = e.target.value.replace(/[^0-9]/g, '');
             });
         }
+    } else if (pageName === 'users') {
+        loadExploreUsers();
+    } else if (pageName === 'userProfile') {
+        loadUserProfileAndPosts();
+    } else if (pageName === 'profile') {
+        loadMyProfilePosts();
     }
 }
+
+async function loadExploreUsers() {
+    const container = document.getElementById('explore-users-list');
+    if (!container) return;
+
+    try {
+        const res = await request('/usuarios');
+        const users = ((res.dados && res.dados.usuarios) || [])
+            .filter(u => String(u.id) !== String(state.user?.id));
+
+        if (users.length === 0) {
+            container.innerHTML = `<p style="text-align: center; color: var(--insta-gray); margin-top: 15px;">Nenhum usuário cadastrado.</p>`;
+            return;
+        }
+
+        let html = '';
+        users.forEach(u => {
+            const avatar = u.foto || 'https://via.placeholder.com/150';
+            html += `
+                <div class="explore-user-card" onclick="openUserProfile('${u.id}')" style="cursor: pointer;">
+                    <img src="${avatar}" class="explore-user-avatar">
+                    <div class="explore-user-details">
+                        <div class="explore-user-username">${u.usuario}</div>
+                        <div class="explore-user-name">${u.nome}</div>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML = `<p style="text-align: center; color: var(--insta-red); margin-top: 15px;">Erro ao carregar usuários do servidor.</p>`;
+    }
+}
+
+window.openUserProfile = (userId) => {
+    state.viewingUserId = userId;
+    renderPage('userProfile');
+};
+
+async function loadUserProfileAndPosts() {
+    const headerContainer = document.getElementById('public-profile-header');
+    const postsContainer = document.getElementById('public-profile-posts');
+    if (!headerContainer || !postsContainer) return;
+
+    const userId = state.viewingUserId;
+    if (!userId) {
+        showToast("Usuário não especificado", "error");
+        renderPage('users');
+        return;
+    }
+
+    try {
+        // Fetch user info
+        const userRes = await request(`/usuarios/${userId}`);
+        const user = userRes.dados;
+        if (!user) throw new Error("Perfil não encontrado");
+
+        const avatar = user.foto || 'https://via.placeholder.com/150';
+        headerContainer.innerHTML = `
+            <img src="${avatar}" class="public-profile-avatar">
+            <div class="public-profile-details">
+                <h2 class="public-profile-username">${user.usuario}</h2>
+                <div style="font-weight: bold; margin-bottom: 5px; color: var(--insta-black);">${user.nome}</div>
+                <p class="public-profile-bio">${user.biografia || 'Sem biografia.'}</p>
+            </div>
+        `;
+
+        // Fetch user's posts
+        try {
+            const postsRes = await request(`/usuarios/${userId}/posts`);
+            const posts = postsRes.posts || [];
+            
+            if (posts.length === 0) {
+                postsContainer.innerHTML = `<div style="grid-column: span 3; text-align: center; color: var(--insta-gray); padding: 40px 0;">Nenhuma publicação ainda.</div>`;
+                return;
+            }
+
+            // Cache posts globally
+            window.postsCache = window.postsCache || {};
+
+            const currentUserId = state.user?.id;
+            if (currentUserId) {
+                state.likedPosts = state.likedPosts || {};
+                state.likedPosts[currentUserId] = state.likedPosts[currentUserId] || {};
+            }
+
+            const isOwner = String(userId) === String(currentUserId);
+
+            let postsHtml = '';
+            posts.forEach(post => {
+                window.postsCache[post.id] = post;
+                if (currentUserId) {
+                    state.likedPosts[currentUserId][post.id] = !!post.curtido;
+                }
+                const likes = post.curtidas || '0';
+                
+                if (isOwner) {
+                    postsHtml += `
+                        <div class="post-grid-item" onclick="triggerOpenPost('${post.id}')" style="position: relative;">
+                            <img src="${buildImageSrc(post.imagem)}">
+                            <div class="post-options-container" style="position: absolute; top: 8px; right: 8px; z-index: 100;">
+                                <button class="post-options-btn" onclick="togglePostOptions(event, '${post.id}')" style="background: rgba(0,0,0,0.5); border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 1rem; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; margin: 0; padding: 0;">⋮</button>
+                                <div id="post-options-dropdown-${post.id}" class="post-options-dropdown" style="display: none; position: absolute; right: 0; top: 28px; background: var(--insta-white); border: 1px solid var(--insta-border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 100px; overflow: hidden; text-align: left;">
+                                    <button onclick="openEditPostModal(event, '${post.id}')" style="background: none; border: none; color: var(--insta-black); width: 100%; text-align: left; padding: 8px 12px; font-size: 0.85rem; font-weight: normal; margin: 0; cursor: pointer; border-bottom: 1px solid var(--insta-border); border-radius: 0;">Editar</button>
+                                    <button onclick="confirmDeletePost(event, '${post.id}')" style="background: none; border: none; color: var(--insta-red); width: 100%; text-align: left; padding: 8px 12px; font-size: 0.85rem; font-weight: bold; margin: 0; cursor: pointer; border-radius: 0;">Excluir</button>
+                                </div>
+                            </div>
+                            <div class="post-grid-overlay">
+                                <span>❤️ ${likes}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    postsHtml += `
+                        <div class="post-grid-item" onclick="triggerOpenPost('${post.id}')">
+                            <img src="${buildImageSrc(post.imagem)}">
+                            <div class="post-grid-overlay">
+                                <span>❤️ ${likes}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            postsContainer.innerHTML = postsHtml;
+        } catch (postErr) {
+            // Check if 404/no posts found
+            if (postErr.codigo === 'NENHUM_POST_ENCONTRADO' || postErr.codigo === 'nenhum_post_encontrado') {
+                postsContainer.innerHTML = `<div style="grid-column: span 3; text-align: center; color: var(--insta-gray); padding: 40px 0;">Nenhuma publicação ainda.</div>`;
+            } else {
+                postsContainer.innerHTML = `<div style="grid-column: span 3; text-align: center; color: var(--insta-red); padding: 40px 0;">Erro ao carregar publicações.</div>`;
+            }
+        }
+    } catch (err) {
+        console.error(err);
+        showToast("Erro ao carregar perfil público", "error");
+        renderPage('users');
+    }
+}
+
+async function loadMyProfilePosts() {
+    const postsContainer = document.getElementById('my-profile-posts');
+    if (!postsContainer) return;
+
+    const userId = state.user?.id;
+    if (!userId) return;
+
+    try {
+        const postsRes = await request(`/usuarios/${userId}/posts`);
+        const posts = postsRes.posts || [];
+        
+        if (posts.length === 0) {
+            postsContainer.innerHTML = `<div style="grid-column: span 3; text-align: center; color: var(--insta-gray); padding: 20px 0; font-size: 0.85rem;">Nenhuma publicação ainda.</div>`;
+            return;
+        }
+
+        // Cache posts globally
+        window.postsCache = window.postsCache || {};
+
+        state.likedPosts = state.likedPosts || {};
+        state.likedPosts[userId] = state.likedPosts[userId] || {};
+
+        let postsHtml = '';
+        posts.forEach(post => {
+            window.postsCache[post.id] = post;
+            state.likedPosts[userId][post.id] = !!post.curtido;
+            const likes = post.curtidas || '0';
+            postsHtml += `
+                <div class="post-grid-item" onclick="triggerOpenPost('${post.id}')" style="position: relative;">
+                    <img src="${buildImageSrc(post.imagem)}">
+                    <div class="post-options-container" style="position: absolute; top: 8px; right: 8px; z-index: 100;">
+                        <button class="post-options-btn" onclick="togglePostOptions(event, '${post.id}')" style="background: rgba(0,0,0,0.5); border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 1rem; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; margin: 0; padding: 0;">⋮</button>
+                        <div id="post-options-dropdown-${post.id}" class="post-options-dropdown" style="display: none; position: absolute; right: 0; top: 28px; background: var(--insta-white); border: 1px solid var(--insta-border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 100px; overflow: hidden; text-align: left;">
+                            <button onclick="openEditPostModal(event, '${post.id}')" style="background: none; border: none; color: var(--insta-black); width: 100%; text-align: left; padding: 8px 12px; font-size: 0.85rem; font-weight: normal; margin: 0; cursor: pointer; border-bottom: 1px solid var(--insta-border); border-radius: 0;">Editar</button>
+                            <button onclick="confirmDeletePost(event, '${post.id}')" style="background: none; border: none; color: var(--insta-red); width: 100%; text-align: left; padding: 8px 12px; font-size: 0.85rem; font-weight: bold; margin: 0; cursor: pointer; border-radius: 0;">Excluir</button>
+                        </div>
+                    </div>
+                    <div class="post-grid-overlay">
+                        <span>❤️ ${likes}</span>
+                    </div>
+                </div>
+            `;
+        });
+        postsContainer.innerHTML = postsHtml;
+    } catch (postErr) {
+        if (postErr.codigo === 'NENHUM_POST_ENCONTRADO' || postErr.codigo === 'nenhum_post_encontrado') {
+            postsContainer.innerHTML = `<div style="grid-column: span 3; text-align: center; color: var(--insta-gray); padding: 20px 0; font-size: 0.85rem;">Nenhuma publicação ainda.</div>`;
+        } else {
+            postsContainer.innerHTML = `<div style="grid-column: span 3; text-align: center; color: var(--insta-red); padding: 20px 0; font-size: 0.85rem;">Erro ao carregar publicações.</div>`;
+        }
+    }
+}
+
+window.triggerOpenPost = (postId) => {
+    const post = (window.postsCache && window.postsCache[postId]);
+    if (post) {
+        openPostModal(post.id, post.imagem, post.conteudo, post.curtidas);
+    }
+};
+
+function openPostModal(postId, imageBase64, caption, likesCount) {
+    let modal = document.getElementById('post-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'post-modal';
+        modal.className = 'post-modal';
+        document.body.appendChild(modal);
+    }
+    
+    const isOwner = (state.currentPage === 'profile') || (state.viewingUserId && String(state.viewingUserId) === String(state.user?.id));
+    
+    let authorUsername = 'Usuário';
+    if (state.currentPage === 'profile') {
+        authorUsername = state.user?.usuario || 'Meu Perfil';
+    } else {
+        const usernameTitle = document.querySelector('.public-profile-username');
+        authorUsername = usernameTitle ? usernameTitle.innerText : 'Usuário';
+    }
+
+    modal.innerHTML = `
+        <div class="post-modal-content" style="max-width: 500px;">
+            <div class="post-modal-body" style="flex-direction: column; height: auto;">
+                <div class="post-modal-image-container" style="position: relative; width: 100%; height: auto; aspect-ratio: 1/1; background-color: #000; display: flex; justify-content: center; align-items: center; flex: none;">
+                    <img src="${buildImageSrc(imageBase64)}" class="post-modal-image" style="width: 100%; height: 100%; object-fit: contain;">
+                    
+                    <!-- Username on the top left corner of the image -->
+                    <div style="position: absolute; top: 12px; left: 12px; color: white; background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; z-index: 2900; pointer-events: none;">
+                        ${authorUsername}
+                    </div>
+                    
+                    <!-- X button on the top right corner of the image -->
+                    <span class="post-modal-close" onclick="closePostModal()" style="position: absolute; top: 12px; right: 12px; color: white; background: rgba(0,0,0,0.6); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 1.5rem; font-weight: bold; cursor: pointer; z-index: 2900; margin: 0; line-height: 1; border: none; transition: background 0.15s;">&times;</span>
+                </div>
+                
+                <!-- White bottom bar below the image -->
+                <div class="post-modal-bottom-bar" style="background: white; padding: 20px; box-sizing: border-box; position: relative; border-top: 1px solid var(--insta-border); display: flex; flex-direction: column; align-items: center; width: 100%;">
+                    
+                    <!-- Likes centered in the middle of the white bar -->
+                    <div style="display: flex; justify-content: center; align-items: center; width: 100%; margin-bottom: 8px;">
+                        <button id="post-modal-like-btn" class="like-btn" onclick="toggleLikePost('${postId}')" style="display: flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer; padding: 6px 12px; border-radius: 20px; transition: background 0.2s; justify-content: center; margin: 0;">
+                            <svg id="post-modal-like-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                            </svg>
+                            <span id="post-modal-likes-count" class="likes-count" style="font-weight: bold; font-size: 0.9rem; color: var(--insta-black);">${likesCount} curtidas</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Caption centered -->
+                    <div class="post-modal-caption" style="text-align: center; font-size: 0.9rem; color: var(--insta-black); width: 100%; word-break: break-word; line-height: 1.4; padding: 0 40px; box-sizing: border-box; flex: none; overflow-y: visible;">
+                        ${caption || '<span style="color: var(--insta-gray); font-style: italic;">Sem legenda.</span>'}
+                    </div>
+                    
+                    <!-- 3 dotted icon on the right corner of the white bottom bar (for the author/owner) -->
+                    ${isOwner ? `
+                    <div class="post-options-container" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%);">
+                        <button class="post-options-btn" onclick="togglePostOptions(event, 'modal-${postId}')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; padding: 5px; color: var(--insta-black); display: flex; align-items: center; justify-content: center; line-height: 1; margin: 0;">⋮</button>
+                        <div id="post-options-dropdown-modal-${postId}" class="post-options-dropdown" style="display: none; position: absolute; right: 0; bottom: 100%; margin-bottom: 8px; background: var(--insta-white); border: 1px solid var(--insta-border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 100px; overflow: hidden; text-align: left; z-index: 1000;">
+                            <button onclick="openEditPostModal(event, '${postId}', true)" style="background: none; border: none; color: var(--insta-black); width: 100%; text-align: left; padding: 8px 12px; font-size: 0.85rem; font-weight: normal; margin: 0; cursor: pointer; border-bottom: 1px solid var(--insta-border); border-radius: 0;">Editar</button>
+                            <button onclick="confirmDeletePost(event, '${postId}', true)" style="background: none; border: none; color: var(--insta-red); width: 100%; text-align: left; padding: 8px 12px; font-size: 0.85rem; font-weight: bold; margin: 0; cursor: pointer; border-radius: 0;">Excluir</button>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    modal.style.display = 'flex';
+    
+    // Check if liked locally
+    const likeIcon = document.getElementById('post-modal-like-icon');
+    const userId = state.user?.id;
+    if (userId && state.likedPosts && state.likedPosts[userId] && state.likedPosts[userId][postId]) {
+        likeIcon.classList.add('liked');
+    }
+}
+
+window.closePostModal = () => {
+    const modal = document.getElementById('post-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.toggleLikePost = async (postId) => {
+    // Owner of the post
+    let postOwnerId = state.viewingUserId;
+    if (!postOwnerId && state.currentPage === 'profile') {
+        postOwnerId = state.user?.id;
+    }
+    
+    if (!postOwnerId) return;
+    
+    const currentUserId = state.user?.id;
+    if (!currentUserId) return;
+    
+    try {
+        await request(`/usuarios/${postOwnerId}/posts/${postId}`, { method: 'POST' });
+        
+        // Toggle state
+        state.likedPosts = state.likedPosts || {};
+        state.likedPosts[currentUserId] = state.likedPosts[currentUserId] || {};
+        state.likedPosts[currentUserId][postId] = !state.likedPosts[currentUserId][postId];
+        
+        // Update local modal UI
+        const likeIcon = document.getElementById('post-modal-like-icon');
+        const countSpan = document.getElementById('post-modal-likes-count');
+        if (likeIcon && countSpan) {
+            let currentCount = parseInt(countSpan.innerText) || 0;
+            if (state.likedPosts[currentUserId][postId]) {
+                likeIcon.classList.add('liked');
+                currentCount += 1;
+            } else {
+                likeIcon.classList.remove('liked');
+                currentCount = Math.max(0, currentCount - 1);
+            }
+            countSpan.innerText = `${currentCount} curtidas`;
+            
+            // Also update the cached post's likes count so it remains in sync
+            if (window.postsCache && window.postsCache[postId]) {
+                window.postsCache[postId].curtidas = String(currentCount);
+            }
+        }
+        
+        // Refresh background grid
+        if (state.currentPage === 'profile') {
+            loadMyProfilePosts();
+        } else if (state.currentPage === 'userProfile') {
+            loadUserProfileAndPosts();
+        }
+    } catch (err) {
+        console.error("Erro ao curtir postagem:", err);
+    }
+};
 
 async function deleteAccount() {
     if (confirm('Tem certeza que deseja excluir sua conta? Esta ação é irreversível.')) {
@@ -1082,6 +1515,293 @@ window.triggerManualDelete = () => {
     }
 };
 
+window.closeCreatePostModal = () => {
+    const modal = document.getElementById('create-post-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.openCreatePostModal = () => {
+    let modal = document.getElementById('create-post-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'create-post-modal';
+        modal.className = 'post-modal';
+        document.body.appendChild(modal);
+    }
+    
+    modal.innerHTML = `
+        <div class="post-modal-content" style="max-width: 450px; padding: 30px; box-sizing: border-box;">
+            <span class="post-modal-close" onclick="closeCreatePostModal()">&times;</span>
+            <h2 style="margin-bottom: 20px; font-weight: 600; text-align: center; color: var(--insta-black); font-size: 1.5rem; margin-top: 0;">Nova Publicação</h2>
+            
+            <input type="file" id="create-post-file-input" accept="image/png, image/jpeg, image/jpg" style="display: none;">
+            <button type="button" class="secondary" onclick="document.getElementById('create-post-file-input').click()" style="margin: 0; width: 100%;">Selecionar Imagem</button>
+            
+            <div id="create-post-preview-container" style="display: none; margin-top: 15px; text-align: center;">
+                <img id="create-post-preview" style="max-width: 100%; max-height: 220px; border-radius: 6px; border: 1px solid var(--insta-border); object-fit: cover;">
+                <div id="create-post-filename" style="font-size: 0.75rem; color: var(--insta-gray); margin-top: 6px; word-break: break-all;"></div>
+            </div>
+            
+            <textarea id="create-post-caption-input" placeholder="Escreva uma legenda (máximo 200 caracteres)..." rows="3" maxlength="200" style="margin-top: 15px; width: 100%; padding: 10px; border: 1px solid var(--insta-border); border-radius: 4px; resize: none; font-family: inherit; font-size: 0.9rem; box-sizing: border-box;"></textarea>
+            
+            <button type="button" onclick="submitCreatePost()" style="margin-top: 20px; width: 100%;">Publicar</button>
+        </div>
+    `;
+    
+    modal.style.display = 'flex';
+    
+    const fileInput = document.getElementById('create-post-file-input');
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const previewContainer = document.getElementById('create-post-preview-container');
+            const previewImg = document.getElementById('create-post-preview');
+            const filenameDiv = document.getElementById('create-post-filename');
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                previewImg.src = event.target.result;
+                filenameDiv.innerText = file.name;
+                previewContainer.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+};
+
+window.submitCreatePost = async () => {
+    const fileInput = document.getElementById('create-post-file-input');
+    const captionInput = document.getElementById('create-post-caption-input');
+    
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        showToast("Selecione uma imagem para o seu post.", "error");
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    
+    // Validation 1: Size limit (10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        showToast("A imagem excede o tamanho máximo de 10 MB.", "error");
+        return;
+    }
+    
+    // Validation 2: File Format (JPG, JPEG, PNG only)
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const hasAllowedExtension = file.name.toLowerCase().endsWith('.jpg') || 
+                                file.name.toLowerCase().endsWith('.jpeg') || 
+                                file.name.toLowerCase().endsWith('.png');
+                                
+    if (!allowedTypes.includes(file.type) && !hasAllowedExtension) {
+        showToast("Formato de arquivo inválido. Apenas JPG, JPEG e PNG são aceitos.", "error");
+        return;
+    }
+    
+    // Validation 3: Caption length (200 characters max)
+    const caption = captionInput ? captionInput.value.trim() : "";
+    if (caption.length > 200) {
+        showToast("A legenda não pode exceder 200 caracteres.", "error");
+        return;
+    }
+    
+    const loader = document.getElementById('loader');
+    if (loader) loader.style.display = 'flex';
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        const base64Data = event.target.result;
+        try {
+            const userId = state.user?.id;
+            await request(`/usuarios/${userId}/posts`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    imagem: base64Data,
+                    legenda: caption
+                })
+            });
+            showToast("Publicação criada com sucesso!", "success");
+            window.closeCreatePostModal();
+            
+            // Refresh posts grid
+            if (state.currentPage === 'profile') {
+                loadMyProfilePosts();
+            }
+        } catch (err) {
+            console.error("Erro ao criar postagem:", err);
+            showToast(err.mensagem || "Erro ao publicar a postagem.", "error");
+        } finally {
+            if (loader) loader.style.display = 'none';
+        }
+    };
+    reader.readAsDataURL(file);
+};
+
+// --- Post Editing & Deletion Logic ---
+
+window.closeAllPostOptionsDropdowns = () => {
+    const allDropdowns = document.querySelectorAll('.post-options-dropdown');
+    allDropdowns.forEach(dropdown => {
+        dropdown.style.display = 'none';
+    });
+};
+
+window.togglePostOptions = (event, optionId) => {
+    if (event) event.stopPropagation();
+
+    const targetDropdown = document.getElementById(`post-options-dropdown-${optionId}`);
+    const alreadyOpen = targetDropdown && targetDropdown.style.display === 'block';
+
+    window.closeAllPostOptionsDropdowns();
+
+    if (targetDropdown && !alreadyOpen) {
+        targetDropdown.style.display = 'block';
+    }
+};
+
+window.openEditPostModal = (event, postId, isFromModal = false) => {
+    if (event) event.stopPropagation();
+    window.closeAllPostOptionsDropdowns();
+
+    const post = window.postsCache && window.postsCache[postId];
+    if (!post) {
+        showToast("Publicação não encontrada.", "error");
+        return;
+    }
+
+    let modal = document.getElementById('edit-post-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'edit-post-modal';
+        modal.className = 'post-modal';
+        modal.style.zIndex = '3000'; // Overlay above details modal (z-index 2800)
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="post-modal-content" style="max-width: 450px; padding: 30px; box-sizing: border-box;">
+            <span class="post-modal-close" onclick="closeEditPostModal()">&times;</span>
+            <h2 style="margin-bottom: 20px; font-weight: 600; text-align: center; color: var(--insta-black); font-size: 1.5rem; margin-top: 0;">Editar Publicação</h2>
+            
+            <textarea id="edit-post-caption-input" placeholder="Escreva uma legenda (máximo 200 caracteres)..." rows="3" maxlength="200" style="width: 100%; padding: 10px; border: 1px solid var(--insta-border); border-radius: 4px; resize: none; font-family: inherit; font-size: 0.9rem; box-sizing: border-box;"></textarea>
+            
+            <button type="button" onclick="submitEditPost('${postId}', ${isFromModal})" style="margin-top: 20px; width: 100%;">Publicar</button>
+        </div>
+    `;
+
+    const captionInput = document.getElementById('edit-post-caption-input');
+    if (captionInput) {
+        captionInput.value = post.conteudo || '';
+    }
+
+    modal.style.display = 'flex';
+};
+
+window.closeEditPostModal = () => {
+    const modal = document.getElementById('edit-post-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.submitEditPost = async (postId, isFromModal) => {
+    const captionInput = document.getElementById('edit-post-caption-input');
+    const caption = captionInput ? captionInput.value.trim() : '';
+
+    if (caption.length > 200) {
+        showToast("A legenda não pode exceder 200 caracteres.", "error");
+        return;
+    }
+
+    const loader = document.getElementById('loader');
+    if (loader) loader.style.display = 'flex';
+
+    try {
+        const userId = state.user?.id;
+        await request(`/usuarios/${userId}/posts/${postId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                legenda: caption
+            })
+        });
+
+        showToast("Publicação atualizada com sucesso!", "success");
+        window.closeEditPostModal();
+
+        // Update global cache
+        if (window.postsCache && window.postsCache[postId]) {
+            window.postsCache[postId].conteudo = caption;
+        }
+
+        // If from modal, update details modal layout caption
+        if (isFromModal) {
+            const captionContainer = document.querySelector('.post-modal-caption');
+            if (captionContainer) {
+                captionContainer.innerHTML = caption || '<span style="color: var(--insta-gray); font-style: italic;">Sem legenda.</span>';
+            }
+        }
+
+        // Refresh grid
+        if (state.currentPage === 'profile') {
+            loadMyProfilePosts();
+        } else if (state.currentPage === 'userProfile') {
+            loadUserProfileAndPosts();
+        }
+    } catch (err) {
+        console.error("Erro ao atualizar postagem:", err);
+        showToast(err.mensagem || "Erro ao atualizar a legenda.", "error");
+    } finally {
+        if (loader) loader.style.display = 'none';
+    }
+};
+
+window.confirmDeletePost = async (event, postId, isFromModal = false) => {
+    if (event) event.stopPropagation();
+    window.closeAllPostOptionsDropdowns();
+
+    if (confirm("Tem certeza que deseja excluir esta publicação? Esta ação é irreversível.")) {
+        const loader = document.getElementById('loader');
+        if (loader) loader.style.display = 'flex';
+
+        try {
+            const userId = state.user?.id;
+            await request(`/usuarios/${userId}/posts/${postId}`, {
+                method: 'DELETE'
+            });
+
+            showToast("Publicação excluída com sucesso!", "success");
+
+            if (window.postsCache) {
+                delete window.postsCache[postId];
+            }
+
+            if (isFromModal) {
+                closePostModal();
+            }
+
+            // Refresh grid
+            if (state.currentPage === 'profile') {
+                loadMyProfilePosts();
+            } else if (state.currentPage === 'userProfile') {
+                loadUserProfileAndPosts();
+            }
+        } catch (err) {
+            console.error("Erro ao excluir postagem:", err);
+            showToast(err.mensagem || "Erro ao excluir a publicação.", "error");
+        } finally {
+            if (loader) loader.style.display = 'none';
+        }
+    }
+};
+
+// Global click listeners for dropdown and modals close on outside clicks
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.post-options-container')) {
+        window.closeAllPostOptionsDropdowns();
+    }
+    if (e.target.classList.contains('post-modal')) {
+        e.target.style.display = 'none';
+    }
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
     const toggleBtn = document.getElementById('toggle-debug-area');
     if (toggleBtn) {
@@ -1098,7 +1818,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (state.token) {
         await setupSession(state.token, state.user);
-        renderPage('profile');
+        renderPage('users');
     } else {
         renderPage('login');
     }

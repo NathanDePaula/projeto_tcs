@@ -61,11 +61,13 @@ body {
 /* Estilo dos Containers (Login/Cadastro/Perfil) */
 .main-container {
     max-width: 350px;
-    margin: 50px auto;
+    margin: 20px auto 110px auto;
     padding: 40px;
     background-color: var(--insta-white);
     border: 1px solid var(--insta-border);
     text-align: center;
+    height: calc(100vh - 130px);
+    overflow-y: auto;
 }
 
 .logo {
@@ -355,3 +357,375 @@ button.danger {
                 padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
                 opacity 0.3s ease-in-out;
 }
+
+/* Bottom Navigation Bar Styles */
+.bottom-nav {
+    position: fixed;
+    bottom: 45px; /* Floats slightly above the collapsed debug bar */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 600px;
+    height: 55px;
+    background-color: var(--insta-white);
+    border: 1px solid var(--insta-border);
+    border-radius: 28px; /* Rounded pill style */
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 2500;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--insta-gray);
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex: 1;
+    height: 100%;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.bottom-nav-item:first-child {
+    border-top-left-radius: 28px;
+    border-bottom-left-radius: 28px;
+}
+
+.bottom-nav-item:last-child {
+    border-top-right-radius: 28px;
+    border-bottom-right-radius: 28px;
+}
+
+.bottom-nav-item:hover {
+    color: var(--insta-blue);
+    background-color: rgba(0,0,0,0.02);
+}
+
+.bottom-nav-item.active {
+    color: var(--insta-blue);
+}
+
+.bottom-nav-icon {
+    width: 20px;
+    height: 20px;
+    margin-bottom: 3px;
+    transition: transform 0.15s ease;
+}
+
+.bottom-nav-item:hover .bottom-nav-icon {
+    transform: scale(1.05);
+}
+
+/* Users Explore List Styles */
+.users-explore-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+    text-align: left;
+}
+
+.explore-user-card {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid var(--insta-border);
+    border-radius: 4px;
+    background: var(--insta-white);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.explore-user-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.explore-user-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--insta-border);
+    margin-right: 15px;
+}
+
+.explore-user-details {
+    flex: 1;
+}
+
+.explore-user-username {
+    font-weight: bold;
+    color: var(--insta-black);
+    font-size: 0.9rem;
+}
+
+.explore-user-name {
+    color: var(--insta-gray);
+    font-size: 0.8rem;
+}
+
+/* Public Profile Grid and Layout */
+.public-profile-header {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--insta-border);
+    padding-bottom: 25px;
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+.public-profile-avatar {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--insta-border);
+    margin-right: 25px;
+}
+
+.public-profile-details {
+    flex: 1;
+}
+
+.public-profile-username {
+    font-size: 1.5rem;
+    font-weight: 300;
+    margin-bottom: 5px;
+}
+
+.public-profile-bio {
+    font-weight: bold;
+    color: var(--insta-gray);
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+}
+
+.public-profile-posts-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.post-grid-item {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border: 1px solid var(--insta-border);
+    cursor: pointer;
+}
+
+.post-grid-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.2s ease;
+}
+
+.post-grid-item:hover img {
+    opacity: 0.8;
+}
+
+.post-grid-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.post-grid-item:hover .post-grid-overlay {
+    opacity: 1;
+}
+
+/* Page Transition Animation */
+.main-container {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.main-container.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Modal de Detalhes do Post */
+.post-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2800;
+    padding: 20px;
+}
+
+.post-modal-content {
+    background-color: var(--insta-white);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 800px;
+    max-height: 85vh;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    animation: modalFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.post-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--insta-gray);
+    cursor: pointer;
+    z-index: 2900;
+    transition: color 0.15s ease;
+}
+
+.post-modal-close:hover {
+    color: var(--insta-black);
+}
+
+.post-modal-body {
+    display: flex;
+    flex-direction: row;
+    height: 60vh;
+}
+
+@media (max-width: 600px) {
+    .post-modal-body {
+        flex-direction: column;
+        height: auto;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    .post-modal-image-container {
+        height: 300px;
+    }
+    .post-modal-details {
+        border-left: none !important;
+        border-top: 1px solid var(--insta-border);
+    }
+}
+
+.post-modal-image-container {
+    flex: 1.2;
+    background-color: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.post-modal-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.post-modal-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    border-left: 1px solid var(--insta-border);
+    text-align: left;
+}
+
+.post-modal-author-info {
+    border-bottom: 1px solid var(--insta-border);
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+    font-size: 0.95rem;
+}
+
+.post-modal-caption {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--insta-black);
+    overflow-y: auto;
+    word-break: break-word;
+}
+
+.post-modal-footer {
+    border-top: 1px solid var(--insta-border);
+    padding-top: 15px;
+    margin-top: 15px;
+}
+
+.post-modal-likes-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.like-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    width: auto;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0; /* Reset global button margin */
+}
+
+.like-btn svg {
+    width: 26px;
+    height: 26px;
+    color: var(--insta-black);
+    transition: transform 0.15s ease, fill 0.15s ease, color 0.15s ease;
+}
+
+.like-btn:hover svg {
+    transform: scale(1.15);
+}
+
+.like-btn svg.liked {
+    color: var(--insta-red);
+    fill: var(--insta-red);
+}
+
+.likes-count {
+    font-weight: bold;
+    font-size: 0.85rem;
+    color: var(--insta-black);
+}
+
+
+

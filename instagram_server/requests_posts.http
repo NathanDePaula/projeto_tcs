@@ -1,0 +1,85 @@
+### Variables
+@baseUrl = http://localhost:23900
+@contentType = application/json
+
+### 1. Login to get JWT Token
+# @name login
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "usuario": "admin",
+  "senha": "admin123"
+}
+
+### Capture token from login response
+@authToken = {{login.response.body.dados.token}}
+
+### 2. Create Post with success (Valid Base64 image and simple letters-only caption)
+POST {{baseUrl}}/usuarios/1/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "imagem": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "legenda": "Meu primeiro post com legenda valida"
+}
+
+### 3. Create Post with invalid caption (contains numbers) - Should fail with dados_invalidos
+POST {{baseUrl}}/usuarios/1/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "imagem": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "legenda": "Post 123 invalido"
+}
+
+### 4. Create Post with invalid caption (contains accents) - Should fail with dados_invalidos
+POST {{baseUrl}}/usuarios/1/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "imagem": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "legenda": "Post acentuado nao pode"
+}
+
+### 5. Create Post with invalid image format - Should fail with dados_invalidos
+POST {{baseUrl}}/usuarios/1/posts
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "imagem": "SGVsbG8gV29ybGQ=",
+  "legenda": "Post imagem invalida"
+}
+
+### 6. List Posts for user 1
+GET {{baseUrl}}/usuarios/1/posts
+Authorization: Bearer {{authToken}}
+
+### 7. Like Post (Toggles Curtida -> Active)
+POST {{baseUrl}}/usuarios/1/posts/1
+Authorization: Bearer {{authToken}}
+
+### 8. List Posts for user 1 again to verify curtidas count is 1
+GET {{baseUrl}}/usuarios/1/posts
+Authorization: Bearer {{authToken}}
+
+### 9. Unlike Post (Toggles Curtida -> Removed)
+POST {{baseUrl}}/usuarios/1/posts/1
+Authorization: Bearer {{authToken}}
+
+### 10. Update Post Caption with success
+PATCH {{baseUrl}}/usuarios/1/posts/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "legenda": "Minha legenda atualizada"
+}
+
+### 11. Delete Post
+DELETE {{baseUrl}}/usuarios/1/posts/1
+Authorization: Bearer {{authToken}}

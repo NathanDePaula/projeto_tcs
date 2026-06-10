@@ -56,6 +56,10 @@ public class UsuarioService {
         return sb.toString();
     }
 
+    public Map<String, String> getUsuariosAtivos() {
+        return new java.util.HashMap<>(usuariosAtivos);
+    }
+
     private void validarPropriedade(Long id) {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || !(authentication.getPrincipal() instanceof Usuario)) {
@@ -95,10 +99,9 @@ public class UsuarioService {
     }
 
     public PadraoResposta listarUsuarios() {
-        validarAdmin();
-
         List<UsuarioSchema> usuarios = usuarioRepository.findAll()
                 .stream()
+                .filter(u -> !"admin".equals(u.getUsuario()))
                 .map(this::mapToSchema)
                 .collect(Collectors.toList());
         
