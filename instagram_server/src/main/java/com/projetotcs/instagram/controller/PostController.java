@@ -34,6 +34,13 @@ public class PostController {
         return ResponseEntity.ok(postService.listarPosts(usuarioId));
     }
 
+    @GetMapping("/{usuarioId}/posts/{postId}")
+    public ResponseEntity<PadraoResposta> obterPostPorId(
+            @PathVariable("usuarioId") Long usuarioId,
+            @PathVariable("postId") Long postId) {
+        return ResponseEntity.ok(postService.obterPostPorId(usuarioId, postId));
+    }
+
     @PostMapping("/{usuarioId}/posts")
     public ResponseEntity<PadraoResposta> criarPost(
             @PathVariable("usuarioId") Long usuarioId,

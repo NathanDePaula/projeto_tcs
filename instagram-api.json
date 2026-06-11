@@ -143,8 +143,59 @@
     
     },
     "/usuarios/{id-usuario}/posts/{id-post}": {
-      
-      
+      "get": {
+        "tags": ["posts"],
+        "summary": "Obter Post por ID",
+        "description": "Retorna os detalhes de um post específico.",
+        "operationId": "obterPostPorId",
+        "parameters": [
+          {
+            "name": "id-usuario",
+            "in": "path",
+            "description": "ID do usuário dono do post",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id-post",
+            "in": "path",
+            "description": "ID do post",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post recuperado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PadraoResposta"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Post não encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
       "post":{
         "tags": ["posts"],
         "summary": "Curtir Post",

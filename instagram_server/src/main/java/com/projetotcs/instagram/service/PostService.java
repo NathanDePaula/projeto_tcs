@@ -138,6 +138,37 @@ public class PostService {
         );
     }
 
+    public PadraoResposta obterPostPorId(Long usuarioId, Long postId) {
+        getUsuarioOuThrow(usuarioId);
+        Post post = getPostOuThrow(postId);
+
+        if (!post.getUsuario().getId().equals(usuarioId)) {
+            throw new PostNaoEncontradoException("Post não encontrado.");
+        }
+
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        Usuario usuarioAutenticado = null;
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof Usuario) {
+            usuarioAutenticado = (Usuario) authentication.getPrincipal();
+        }
+
+        long count = curtidaRepository.countByPostId(post.getId());
+        boolean likedByMe = false;
+        if (usuarioAutenticado != null) {
+            likedByMe = curtidaRepository.findByUsuarioIdAndPostId(usuarioAutenticado.getId(), post.getId()).isPresent();
+        }
+
+        PostSchema schema = new PostSchema(
+            String.valueOf(post.getId()),
+            post.getLegenda() != null ? post.getLegenda() : "",
+            post.getImagem(),
+            String.valueOf(count),
+            likedByMe
+        );
+
+        return new PadraoResposta("sucesso", "POST_ENCONTRADO", "Dados do post recuperados", schema);
+    }
+
     public PadraoResposta criarPost(Long usuarioId, CriacaoPostDTO request) {
         // Enforce ownership: only authenticated user can post to their own ID (or admin)
         validarPropriedade(usuarioId);

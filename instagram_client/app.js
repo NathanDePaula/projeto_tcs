@@ -146,9 +146,8 @@ async function login(usuario, senha, isAutoRefresh = false) {
         state.token = res.dados.token; // Definir o token imediatamente para a próxima requisição funcionar
         
         if (!isAutoRefresh) {
-            // Fazer a requisição automática de GET /usuarios/{id} apenas após o login manual
-            const profileRes = await request(`/usuarios/${res.dados.usuario.id}`);
-            await setupSession(res.dados.token, profileRes.dados);
+            // Do not request GET /usuarios/{id} right after login. Use user details from login response.
+            await setupSession(res.dados.token, res.dados.usuario);
             showToast('Bem-vindo de volta!', 'success');
             renderPage('users');
         } else {
@@ -859,6 +858,19 @@ async function loadMyProfilePosts() {
     if (!userId) return;
 
     try {
+        // Fetch full profile info after the user clicks on the "Meu Perfil" page
+        const userRes = await request(`/usuarios/${userId}`);
+        state.user = userRes.dados;
+        localStorage.setItem('user', JSON.stringify(state.user));
+
+        // Dynamically update the profile UI elements with the fetched data
+        const dispFoto = document.getElementById('disp-foto');
+        const dispUser = document.getElementById('disp-user');
+        const dispBio = document.getElementById('disp-bio');
+        if (dispFoto) dispFoto.src = state.user.foto || 'https://via.placeholder.com/150';
+        if (dispUser) dispUser.innerText = state.user.usuario || state.user.nome || '';
+        if (dispBio) dispBio.innerText = state.user.biografia || 'Sem biografia.';
+
         const postsRes = await request(`/usuarios/${userId}/posts`);
         const posts = postsRes.posts || [];
         
@@ -904,10 +916,51 @@ async function loadMyProfilePosts() {
     }
 }
 
-window.triggerOpenPost = (postId) => {
-    const post = (window.postsCache && window.postsCache[postId]);
-    if (post) {
-        openPostModal(post.id, post.imagem, post.conteudo, post.curtidas);
+window.triggerOpenPost = async (postId) => {
+    let postOwnerId = null;
+    if (state.currentPage === 'profile') {
+        postOwnerId = state.user?.id;
+    } else if (state.currentPage === 'userProfile') {
+        postOwnerId = state.viewingUserId;
+    }
+    
+    if (!postOwnerId) {
+        // Fallback
+        const cachedPost = (window.postsCache && window.postsCache[postId]);
+        if (cachedPost) {
+            postOwnerId = state.viewingUserId || state.user?.id;
+        }
+    }
+
+    if (!postOwnerId) {
+        console.error("Unknown post owner");
+        return;
+    }
+
+    try {
+        // Throw a GET /usuarios/{id}/posts/{id} for that specific post
+        const res = await request(`/usuarios/${postOwnerId}/posts/${postId}`);
+        const post = res.dados;
+        if (post) {
+            // Cache it
+            window.postsCache = window.postsCache || {};
+            window.postsCache[post.id] = post;
+            
+            // Sync likedPosts state
+            const currentUserId = state.user?.id;
+            if (currentUserId) {
+                state.likedPosts = state.likedPosts || {};
+                state.likedPosts[currentUserId] = state.likedPosts[currentUserId] || {};
+                state.likedPosts[currentUserId][post.id] = !!post.curtido;
+            }
+
+            openPostModal(post.id, post.imagem, post.conteudo, post.curtidas);
+        } else {
+            showToast("Publicação não encontrada no servidor", "error");
+        }
+    } catch (err) {
+        console.error("Erro ao carregar publicação:", err);
+        showToast("Erro ao abrir publicação", "error");
     }
 };
 
